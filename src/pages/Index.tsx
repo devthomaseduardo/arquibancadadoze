@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Truck, ShieldCheck, Headphones } from "lucide-react";
+import { ArrowRight, Truck, ShieldCheck, Headphones, CreditCard } from "lucide-react";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 import CategoryCard from "@/components/CategoryCard";
 import { categories } from "@/data/categories";
 import { products } from "@/data/products";
-import heroBanner from "@/assets/hero-banner.jpg";
+import bannerHero from "@/assets/banner-hero.png";
+import bannerHero2 from "@/assets/banner-hero-2.png";
 
 const featuredProducts = products.filter((p) => p.badge);
 const topCategories = categories.slice(0, 6);
@@ -18,54 +20,44 @@ const testimonials = [
 ];
 
 const Index = () => {
+  const [currentBanner, setCurrentBanner] = useState(0);
+  const banners = [bannerHero, bannerHero2];
+
   return (
     <Layout>
-      {/* Hero */}
+      {/* Hero with banner carousel */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <img src={heroBanner} alt="Torcida Urbana" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/40" />
-        </div>
-        <div className="container relative mx-auto px-4 py-24 md:py-36">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="max-w-xl"
-          >
-            <h1 className="font-heading text-5xl leading-tight text-foreground md:text-7xl">
-              VISTA A SUA{" "}
-              <span className="text-primary text-neon-glow">PAIXÃO</span>
-            </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Camisas de futebol com qualidade tailandesa e estilo urbano. 
-              Os melhores times, os melhores preços.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                to="/produtos"
-                className="gradient-primary inline-flex items-center gap-2 rounded-lg px-8 py-3 font-heading text-lg tracking-wide text-primary-foreground transition-all hover:opacity-90 neon-glow"
-              >
-                VER PRODUTOS <ArrowRight className="h-5 w-5" />
-              </Link>
-              <a
-                href="https://wa.me/5511999999999"
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-8 py-3 font-heading text-lg tracking-wide text-foreground transition-colors hover:border-primary hover:text-primary"
-              >
-                WHATSAPP
-              </a>
-            </div>
-          </motion.div>
+        <div className="relative">
+          <img
+            src={banners[currentBanner]}
+            alt="Pé na Bola - Vista a paixão pelo futebol"
+            className="w-full object-cover"
+            style={{ maxHeight: "600px" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+          {/* Banner dots */}
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+            {banners.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentBanner(i)}
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
+                  currentBanner === i ? "bg-primary w-6" : "bg-foreground/40"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Features bar */}
       <section className="border-y border-border bg-secondary/30">
-        <div className="container mx-auto grid grid-cols-1 gap-4 px-4 py-6 md:grid-cols-3">
+        <div className="container mx-auto grid grid-cols-2 gap-4 px-4 py-6 md:grid-cols-4">
           {[
-            { icon: Truck, label: "Entrega para todo Brasil" },
+            { icon: Truck, label: "Envio para todo Brasil" },
             { icon: ShieldCheck, label: "Qualidade Garantida" },
             { icon: Headphones, label: "Atendimento até 18h" },
+            { icon: CreditCard, label: "Parcelamos no Cartão" },
           ].map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <Icon className="h-5 w-5 text-primary" />
@@ -142,7 +134,7 @@ const Index = () => {
                 transition={{ delay: i * 0.1 }}
                 className="rounded-lg border border-border bg-card p-6"
               >
-                <div className="flex gap-1 text-accent">
+                <div className="flex gap-1 text-primary">
                   {Array.from({ length: t.rating }).map((_, j) => (
                     <span key={j}>★</span>
                   ))}
@@ -159,7 +151,7 @@ const Index = () => {
       <section className="border-t border-border bg-secondary/30 py-12 text-center">
         <div className="container mx-auto px-4">
           <h2 className="font-heading text-2xl text-foreground md:text-3xl">
-            SIGA A <span className="text-primary">TORCIDA URBANA</span> NAS REDES
+            SIGA A <span className="text-primary">PÉ NA BOLA</span> NAS REDES
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Novidades, promoções exclusivas e lançamentos em primeira mão

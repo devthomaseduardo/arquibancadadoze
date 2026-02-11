@@ -38,7 +38,7 @@ const faqs = [
   },
   {
     q: "Como entro em contato com vocês?",
-    a: "Nosso atendimento funciona das 10h às 18h pelo WhatsApp. Você também pode enviar um e-mail para contato@torcidaurbana.com ou usar o formulário na página Sobre.",
+    a: "Nosso atendimento funciona das 10h às 18h pelo WhatsApp. Você também pode enviar um e-mail para contato@penabola.com ou usar o formulário na página Sobre.",
   },
 ];
 
