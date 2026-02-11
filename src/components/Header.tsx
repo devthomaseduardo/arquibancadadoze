@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, Menu, X, Shield } from "lucide-react";
+import { ShoppingCart, Menu, X, Shield, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import logo from "@/assets/logo.png";
 
 const navLinks = [
   { to: "/", label: "Início" },
@@ -20,9 +21,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
-          <span className="font-heading text-3xl tracking-wider text-primary text-neon-glow">
-            TORCIDA URBANA
-          </span>
+          <img src={logo} alt="Pé na Bola" className="h-12 w-auto" />
         </Link>
 
         {/* Desktop Nav */}
@@ -41,6 +40,9 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-3">
+          <button className="hidden rounded-lg bg-secondary p-2 transition-colors hover:bg-primary hover:text-primary-foreground md:block">
+            <Search className="h-5 w-5" />
+          </button>
           <Link
             to="/admin"
             className="hidden items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary md:flex"

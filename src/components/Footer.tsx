@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, Twitter, MessageCircle } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const Footer = () => {
   return (
@@ -7,9 +8,9 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid gap-8 md:grid-cols-4">
           <div>
-            <h3 className="font-heading text-2xl text-primary text-neon-glow">TORCIDA URBANA</h3>
+            <img src={logo} alt="Pé na Bola" className="h-14 w-auto" />
             <p className="mt-3 text-sm text-muted-foreground">
-              Estilo urbano e paixão por futebol. As melhores camisas de times com qualidade premium.
+              Paixão por futebol e qualidade premium. As melhores camisas de times nacionais e internacionais.
             </p>
             <div className="mt-4 flex gap-3">
               <a href="#" className="rounded-lg bg-muted p-2 transition-colors hover:bg-primary hover:text-primary-foreground">
@@ -52,7 +53,7 @@ const Footer = () => {
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>📞 Pedidos: 10h às 17h</li>
               <li>💬 Atendimento até 18h</li>
-              <li>📧 contato@torcidaurbana.com</li>
+              <li>📧 contato@penabola.com</li>
               <li>
                 <a href="https://wa.me/5511999999999" className="text-primary hover:underline">
                   WhatsApp
@@ -63,7 +64,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © 2026 Torcida Urbana. Todos os direitos reservados.
+          © 2026 Pé na Bola. Todos os direitos reservados.
         </div>
       </div>
     </footer>

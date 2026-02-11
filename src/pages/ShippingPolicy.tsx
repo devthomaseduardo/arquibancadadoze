@@ -51,6 +51,9 @@ const ShippingPolicy = () => {
             <li>📬 Prazo de entrega: 5 a 15 dias úteis, dependendo da região</li>
             <li>🔍 Código de rastreamento enviado por WhatsApp ou e-mail</li>
             <li>💰 Frete grátis para compras acima de R$ 500,00</li>
+            <li>🏍️ SEDEX sob consulta</li>
+            <li>🚗 Retirada via Uber Flash disponível</li>
+            <li>🏷️ Cliente pode gerar própria etiqueta</li>
           </ul>
         </div>
       </div>

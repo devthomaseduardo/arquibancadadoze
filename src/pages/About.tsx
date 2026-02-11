@@ -25,8 +25,8 @@ const About = () => {
         <div className="mt-8 grid gap-8 md:grid-cols-2">
           <div className="space-y-4 text-sm text-foreground/80">
             <p>
-              A <strong className="text-primary">Torcida Urbana</strong> nasceu da paixão por futebol e pela cultura 
-              de rua. Acreditamos que vestir a camisa do seu time é mais do que torcer — é expressar 
+              A <strong className="text-primary">Pé na Bola</strong> nasceu da paixão por futebol e do compromisso 
+              com qualidade. Acreditamos que vestir a camisa do seu time é mais do que torcer — é expressar 
               sua identidade, sua história e seu estilo.
             </p>
             <p>
@@ -36,16 +36,16 @@ const About = () => {
             </p>
             <p>
               Nossa missão é democratizar o acesso a camisas de futebol de qualidade, com preços 
-              justos e atendimento humanizado. Cada pedido é tratado com carinho e atenção aos detalhes.
+              justos e atendimento direto e transparente. Marca brasileira feita para torcedores.
             </p>
 
             <div className="mt-6">
               <h3 className="font-heading text-xl text-foreground">NOSSOS VALORES</h3>
               <ul className="mt-3 space-y-2">
                 <li>⚽ Paixão genuína por futebol</li>
-                <li>🎨 Estilo urbano e autêntico</li>
-                <li>✨ Qualidade sem concessões</li>
-                <li>🤝 Atendimento próximo e honesto</li>
+                <li>🏆 Compromisso com qualidade</li>
+                <li>💰 Preço justo</li>
+                <li>🤝 Atendimento direto e transparente</li>
                 <li>💚 Preços acessíveis para todos</li>
               </ul>
             </div>
