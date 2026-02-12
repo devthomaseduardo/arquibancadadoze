@@ -1,0 +1,222 @@
+// Torcida Urbana - Schema do banco de dados
+// Backend dropshipping camisas de futebol
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== CATÁLOGO ==========
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  costMin     Float     // custo fornecedor mínimo (R$)
+  costMax     Float     // custo fornecedor máximo (R$)
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String    @unique
+  description String?
+  costMin     Float
+  costMax     Float
+  priceMin    Float     // preço revenda mínimo
+  priceMax    Float     // preço revenda máximo
+  imageUrl    String?
+  sizes       String   // JSON array: ["P","M","G","GG"] ou ["Único"]
+  minimumMargin Float    @default(20.0) // % Margem mínima padrão
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orderItems  OrderItem[]
+  variants    ProductVariant[]
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size      String
+  quantity  Int      @default(0)
+  sku       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, size])
+}
+
+// ========== USUÁRIOS (clientes - login para acompanhar pedido) ==========
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("CUSTOMER") // CUSTOMER, ADMIN, etc.
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  orders       Order[]
+}
+
+// ========== PEDIDOS ==========
+
+model Order {
+  id                 String    @id @default(cuid())
+  orderNumber        String    @unique // número exibido (ex: #1001)
+  userId             String?   // se o cliente estava logado
+  user               User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Cliente
+  customerName       String
+  customerEmail      String
+  customerPhone      String?
+  // Endereço
+  addressStreet      String
+  addressNumber      String
+  addressComplement  String?
+  addressNeighborhood String?
+  addressCity       String
+  addressState      String
+  addressZip         String
+  // Valores
+  subtotal           Float     // soma dos produtos
+  shippingCost       Float     // frete cobrado ao cliente
+  shippingCostPaid   Float?    // frete pago ao fornecedor/correio
+  totalAmount        Float     // total da venda
+  totalCost          Float?    // custo total (produtos + frete pago)
+  estimatedProfit    Float?    // totalAmount - totalCost
+  // Pagamento e status
+  paymentMethod      String    // cartao, boleto, pix
+  paymentStatus      String    // pendente, aprovado, estornado
+  orderStatus        String    // aguardando, em_separacao, enviado, entregue, trocado_devolvido
+  // Envio
+  trackingCode       String?
+  trackingUrl        String?
+  shippedAt          DateTime?
+  // Metadados
+  notes              String?   // notas internas
+  source             String?   // nuvemshop, manual, etc.
+  externalId         String?   // ID do pedido na Nuvemshop
+  mercadopagoPaymentId String? // ID do pagamento no MP
+  mercadopagoPreferenceId String? // ID da preferência (PIX/boleto)
+
+  
+  // Financeiro
+  platformFee       Float?    @default(0) // Taxa da plataforma/gateway (R$)
+  commissionValue   Float?    @default(0) // Valor pago ao influenciador (R$)
+  netProfit         Float?    // Lucro Líquido Real (R$)
+  netMarginPercent  Float?    // Margem Líquida %
+  
+  influencerId      String?
+  influencer        Influencer? @relation(fields: [influencerId], references: [id])
+  appliedCoupon     String?
+
+  createdAt          DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  items              OrderItem[]
+  communications     OrderCommunication[]
+  returns            ReturnExchange[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String  // nome no momento da compra
+  variation  String?  // tamanho, cor (ex: "M", "Preta")
+  quantity   Int      @default(1)
+  unitPrice  Float    // preço de venda unitário
+  unitCost   Float?   // custo unitário fornecedor
+  lineTotal  Float    // quantity * unitPrice
+  lineCost   Float?   // quantity * unitCost
+}
+
+model OrderCommunication {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String   // whatsapp, email, interno
+  content   String
+  createdAt DateTime @default(now())
+}
+
+// ========== TROCAS E DEVOLUÇÕES ==========
+
+model ReturnExchange {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reason      String   // defeito_fabricacao, tamanho_errado, outro
+  status      String   // solicitado, aprovado, em_transito, concluido, recusado
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========== CONTEÚDO / CONFIGURAÇÃO ==========
+
+model ShippingPolicy {
+  id          String   @id @default(cuid())
+  region      String   @unique // Sudeste, Sul, Nordeste, Norte, Centro-Oeste
+  price       Float    // valor fixo R$
+  description String?
+}
+
+model Faq {
+  id       String @id @default(cuid())
+  question String
+  answer   String
+  sortOrder Int   @default(0)
+}
+
+model SiteConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String // JSON para valores complexos
+}
+
+// ========== FINANCEIRO & CAMPANHAS ==========
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  targetCategorySlug String? // Se null, aplica a tudo ou define lógica code-level
+  active      Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  minMarginOverride Float? // % de margem mínima forçada nessa campanha
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Influencer {
+  id             String   @id @default(cuid())
+  name           String
+  couponCode     String   @unique
+  commissionRate Float    @default(5.0) // % padrão
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+}
+
+// Alterações em Product (adicionar margem default)
+// Alterações em Order (adicionar campos financeiros)

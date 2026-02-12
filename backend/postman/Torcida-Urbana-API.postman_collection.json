@@ -1,0 +1,194 @@
+{
+  "info": {
+    "name": "Torcida Urbana API",
+    "description": "Coleção para testar a API da loja Torcida Urbana no Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "adminKey", "value": "torcida-urbana-admin-secret" },
+    { "key": "orderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "Público - Categorias",
+      "item": [
+        {
+          "name": "Listar categorias",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/categories"
+          }
+        },
+        {
+          "name": "Categoria por slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/categories/camisas-tailandesas-torcedor"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Público - Produtos",
+      "item": [
+        {
+          "name": "Listar produtos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products"
+          }
+        },
+        {
+          "name": "Produtos por categoria",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products?category=camisas-tailandesas-torcedor"
+          }
+        },
+        {
+          "name": "Produto por slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/camisas-tailandesas-torcedor-principal"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Público - Conteúdo",
+      "item": [
+        {
+          "name": "Tabela de frete",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/content/shipping"
+          }
+        },
+        {
+          "name": "FAQ",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/content/faq"
+          }
+        },
+        {
+          "name": "Config (sobre, contato)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/content/config?keys=about,contact_whatsapp,business_hours,return_policy"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Criar pedido (POST)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerName\": \"João Silva\",\n  \"customerEmail\": \"joao@email.com\",\n  \"customerPhone\": \"11999998888\",\n  \"addressStreet\": \"Rua das Flores\",\n  \"addressNumber\": \"123\",\n  \"addressComplement\": \"Apto 45\",\n  \"addressNeighborhood\": \"Centro\",\n  \"addressCity\": \"São Paulo\",\n  \"addressState\": \"SP\",\n  \"addressZip\": \"01310100\",\n  \"paymentMethod\": \"pix\",\n  \"items\": [\n    {\n      \"productName\": \"Camisa Tailandesa Torcedor - Flamengo\",\n      \"variation\": \"M\",\n      \"quantity\": 1,\n      \"unitPrice\": 249.90,\n      \"unitCost\": 170\n    }\n  ],\n  \"shippingCost\": 35\n}"
+        },
+        "url": "{{baseUrl}}/api/orders"
+      }
+    },
+    {
+      "name": "Admin - Pedidos",
+      "item": [
+        {
+          "name": "Listar pedidos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": "{{baseUrl}}/api/orders"
+          }
+        },
+        {
+          "name": "Listar pedidos (filtros)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": "{{baseUrl}}/api/orders?orderStatus=aguardando&dateFrom=2025-01-01&dateTo=2025-12-31"
+          }
+        },
+        {
+          "name": "Detalhes do pedido",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": "{{baseUrl}}/api/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Atualizar status do pedido",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderStatus\": \"enviado\",\n  \"trackingCode\": \"BR123456789BR\",\n  \"trackingUrl\": \"https://rastreamento.correios.com.br\"\n}"
+            },
+            "url": "{{baseUrl}}/api/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Texto para fornecedor (WhatsApp)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": "{{baseUrl}}/api/orders/{{orderId}}/supplier-text"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Métricas",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+        "url": "{{baseUrl}}/api/admin/metrics"
+      }
+    },
+    {
+      "name": "Admin - Exportar pedidos (CSV)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+        "url": "{{baseUrl}}/api/admin/export/orders?format=csv"
+      }
+    },
+    {
+      "name": "Admin - Exportar pedidos (Excel)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+        "url": "{{baseUrl}}/api/admin/export/orders?format=xlsx"
+      }
+    },
+    {
+      "name": "Admin - Trocas/Devoluções",
+      "item": [
+        {
+          "name": "Listar trocas",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": "{{baseUrl}}/api/admin/returns"
+          }
+        }
+      ]
+    }
+  ]
+}
