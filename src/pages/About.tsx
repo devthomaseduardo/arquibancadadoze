@@ -1,11 +1,43 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Layout from "@/components/Layout";
 import { Instagram, Facebook, Twitter, MessageCircle, Mail, Send } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getConfig } from "@/lib/api";
+import { parseConfigValue } from "@/lib/store-mappers";
+import { criativos } from "@/data/criativos";
+import BannerCarousel from "@/components/BannerCarousel";
+
+type AboutConfig = { title?: string; text?: string };
+type BusinessHoursConfig = { text?: string };
 
 const About = () => {
   const { toast } = useToast();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+
+  const { data: config = {} } = useQuery({
+    queryKey: ["site-config", "about"],
+    queryFn: () =>
+      getConfig([
+        "about",
+        "business_hours",
+        "contact_whatsapp",
+        "contact_email",
+        "contact_instagram",
+        "contact_facebook",
+      ]),
+  });
+
+  const about = useMemo(() => parseConfigValue<AboutConfig>(config.about, {}), [config.about]);
+  const businessHours = useMemo(
+    () => parseConfigValue<BusinessHoursConfig>(config.business_hours, {}),
+    [config.business_hours],
+  );
+
+  const whatsapp = config.contact_whatsapp || "5511999999999";
+  const email = config.contact_email || "contato@arquibancada12.com";
+  const instagram = config.contact_instagram || "#";
+  const facebook = config.contact_facebook || "#";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,65 +52,49 @@ const About = () => {
   return (
     <Layout>
       <div className="container mx-auto max-w-4xl px-4 py-12">
-        <h1 className="font-heading text-4xl text-foreground">QUEM SOMOS</h1>
+        <h1 className="font-heading text-4xl text-foreground">{about.title?.toUpperCase() || "QUEM SOMOS"}</h1>
 
         <div className="mt-8 grid gap-8 md:grid-cols-2">
           <div className="space-y-4 text-sm text-foreground/80">
-            <p>
-              A <strong className="text-primary">Pé na Bola</strong> nasceu da paixão por futebol e do compromisso 
-              com qualidade. Acreditamos que vestir a camisa do seu time é mais do que torcer — é expressar 
-              sua identidade, sua história e seu estilo.
-            </p>
-            <p>
-              Trabalhamos com as melhores camisas de qualidade tailandesa e nacional premium, 
-              garantindo que cada peça tenha acabamento impecável, tecido confortável e fidelidade 
-              ao design original.
-            </p>
-            <p>
-              Nossa missão é democratizar o acesso a camisas de futebol de qualidade, com preços 
-              justos e atendimento direto e transparente. Marca brasileira feita para torcedores.
-            </p>
-
-            <div className="mt-6">
-              <h3 className="font-heading text-xl text-foreground">NOSSOS VALORES</h3>
-              <ul className="mt-3 space-y-2">
-                <li>⚽ Paixão genuína por futebol</li>
-                <li>🏆 Compromisso com qualidade</li>
-                <li>💰 Preço justo</li>
-                <li>🤝 Atendimento direto e transparente</li>
-                <li>💚 Preços acessíveis para todos</li>
-              </ul>
+            <div className="overflow-hidden rounded-2xl border border-border">
+              <BannerCarousel
+                images={[
+                  { src: criativos.bannerSecundario, alt: "Criativo Arquibancada 12" },
+                  { src: criativos.bannerPrincipal, alt: "Paixão de torcedor" },
+                ]}
+                className="rounded-2xl border border-border"
+              />
             </div>
+
+            <p>{about.text || "Somos apaixonados por futebol e estilo."}</p>
 
             <div className="mt-6">
               <h3 className="font-heading text-xl text-foreground">HORÁRIO DE ATENDIMENTO</h3>
-              <p className="mt-2">📞 Pedidos: 10h às 17h</p>
-              <p>💬 Atendimento geral: até 18h</p>
-              <p className="mt-2">Segunda a sexta-feira</p>
+              <p className="mt-2">{businessHours.text || "Atendimento em horário comercial."}</p>
             </div>
 
             <div className="mt-6 flex gap-3">
-              <a href="#" className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
+              <a href={instagram} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
                 <Instagram className="h-5 w-5" />
               </a>
-              <a href="#" className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
+              <a href={facebook} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
                 <Facebook className="h-5 w-5" />
               </a>
               <a href="#" className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="https://wa.me/5511999999999" className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
+              <a href={`https://wa.me/${whatsapp}`} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
                 <MessageCircle className="h-5 w-5" />
               </a>
             </div>
           </div>
 
-          {/* Contact Form */}
           <div className="rounded-lg border border-border bg-card p-6">
             <div className="flex items-center gap-2">
               <Mail className="h-5 w-5 text-primary" />
               <h3 className="font-heading text-xl text-foreground">FALE CONOSCO</h3>
             </div>
+            <p className="mt-2 text-sm text-muted-foreground">E-mail: {email}</p>
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome</label>

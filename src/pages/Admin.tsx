@@ -1,10 +1,34 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Download, X, Package, ChevronDown } from "lucide-react";
+import {
+  Search,
+  Download,
+  X,
+  ChevronDown,
+  Settings,
+  BarChart3,
+  ShoppingBag,
+  Truck,
+  PackageCheck,
+  Send,
+  CheckCircle2,
+  Copy,
+} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
-import { mockOrders, type Order, type OrderStatus, type PaymentStatus } from "@/data/orders";
+import {
+  getAdminOrders,
+  updateAdminOrder,
+  type ApiOrder,
+  getSalesReport,
+  getAdminSettings,
+  updateAdminConfigKey,
+  updateAdminShippingPolicy,
+  getAdminSupplierText,
+} from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
-const statusLabels: Record<OrderStatus, string> = {
+const statusLabels: Record<string, string> = {
   aguardando: "Aguardando",
   em_separacao: "Em Separação",
   enviado: "Enviado",
@@ -12,7 +36,7 @@ const statusLabels: Record<OrderStatus, string> = {
   trocado_devolvido: "Trocado/Devolvido",
 };
 
-const statusColors: Record<OrderStatus, string> = {
+const statusColors: Record<string, string> = {
   aguardando: "bg-accent/20 text-accent",
   em_separacao: "bg-primary/20 text-primary",
   enviado: "bg-blue-500/20 text-blue-400",
@@ -20,27 +44,102 @@ const statusColors: Record<OrderStatus, string> = {
   trocado_devolvido: "bg-destructive/20 text-destructive",
 };
 
-const paymentColors: Record<PaymentStatus, string> = {
+const paymentColors: Record<string, string> = {
   pendente: "bg-accent/20 text-accent",
   aprovado: "bg-green-500/20 text-green-400",
   estornado: "bg-destructive/20 text-destructive",
 };
 
-const getOrderTotal = (order: Order) =>
-  order.items.reduce((sum, i) => sum + i.salePrice * i.quantity, 0);
-const getOrderCost = (order: Order) =>
-  order.items.reduce((sum, i) => sum + i.cost * i.quantity, 0);
-const getProfit = (order: Order) =>
-  getOrderTotal(order) + order.shippingCharged - getOrderCost(order) - order.shippingCost;
+const asCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
+
+const getOrderCost = (order: ApiOrder) =>
+  order.items.reduce((sum, i) => sum + (i.unitCost ?? 0) * i.quantity, 0);
+
+const getProfit = (order: ApiOrder) => {
+  const total = order.totalAmount;
+  const cost = order.totalCost ?? getOrderCost(order) + (order.shippingCostPaid ?? 0);
+  return total - cost;
+};
+
+const buildCustomerAddress = (order: ApiOrder) => {
+  const parts = [
+    `${order.addressStreet}, ${order.addressNumber}`,
+    order.addressComplement || "",
+    order.addressNeighborhood || "",
+    `${order.addressCity}/${order.addressState}`,
+    `CEP ${order.addressZip}`,
+  ].filter(Boolean);
+  return parts.join(" - ");
+};
+
+const logisticsColumns = [
+  { key: "aguardando", label: "Aguardando", icon: ShoppingBag },
+  { key: "em_separacao", label: "Em Separação", icon: PackageCheck },
+  { key: "enviado", label: "Enviado", icon: Send },
+  { key: "entregue", label: "Entregue", icon: CheckCircle2 },
+] as const;
 
 const Admin = () => {
-  const [orders, setOrders] = useState(mockOrders);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [tab, setTab] = useState<"pedidos" | "logistica" | "relatorios" | "config">("pedidos");
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [editingStatus, setEditingStatus] = useState<OrderStatus | "">("");
+  const [logisticsSearch, setLogisticsSearch] = useState("");
+  const [logisticsStatusFilter, setLogisticsStatusFilter] = useState<string>("todos");
+  const [trackingDrafts, setTrackingDrafts] = useState<Record<string, string>>({});
+  const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null);
+  const [editingStatus, setEditingStatus] = useState<string>("");
   const [editingTracking, setEditingTracking] = useState("");
 
+  const [groupBy, setGroupBy] = useState<"day" | "month">("day");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState("500");
+  const [copyingSupplierId, setCopyingSupplierId] = useState<string | null>(null);
+
+  const { data: ordersData, isLoading: loadingOrders } = useQuery({
+    queryKey: ["admin-orders"],
+    queryFn: getAdminOrders,
+  });
+
+  const { data: reportData, isLoading: loadingReport } = useQuery({
+    queryKey: ["admin-report", groupBy, dateFrom, dateTo],
+    queryFn: () => getSalesReport({ groupBy, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }),
+  });
+
+  const { data: settingsData, isLoading: loadingSettings } = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: getAdminSettings,
+  });
+
+  const saveOrderMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { orderStatus?: string; trackingCode?: string } }) =>
+      updateAdminOrder(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      setSelectedOrder(null);
+    },
+  });
+
+  const saveThresholdMutation = useMutation({
+    mutationFn: (value: string) => updateAdminConfigKey("free_shipping_threshold", value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+  });
+
+  const saveShippingMutation = useMutation({
+    mutationFn: ({ region, price, description }: { region: string; price: number; description: string }) =>
+      updateAdminShippingPolicy(region, { price, description }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+  });
+
+  const orders = ordersData?.orders ?? [];
   const filtered = useMemo(() => {
     let result = orders;
     if (statusFilter !== "todos") {
@@ -49,15 +148,35 @@ const Admin = () => {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
-        (o) =>
-          o.id.toLowerCase().includes(q) ||
-          o.customerName.toLowerCase().includes(q)
+        (o) => o.id.toLowerCase().includes(q) || o.orderNumber.toLowerCase().includes(q) || o.customerName.toLowerCase().includes(q),
       );
     }
     return result;
   }, [orders, search, statusFilter]);
 
-  const openDetail = (order: Order) => {
+  const logisticsBase = useMemo(
+    () => orders.filter((order) => logisticsColumns.some((column) => column.key === order.orderStatus)),
+    [orders],
+  );
+
+  const logisticsFiltered = useMemo(() => {
+    let result = logisticsBase;
+    if (logisticsStatusFilter !== "todos") {
+      result = result.filter((order) => order.orderStatus === logisticsStatusFilter);
+    }
+    if (logisticsSearch) {
+      const q = logisticsSearch.toLowerCase();
+      result = result.filter(
+        (order) =>
+          order.orderNumber.toLowerCase().includes(q) ||
+          order.customerName.toLowerCase().includes(q) ||
+          order.addressState.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [logisticsBase, logisticsSearch, logisticsStatusFilter]);
+
+  const openDetail = (order: ApiOrder) => {
     setSelectedOrder(order);
     setEditingStatus(order.orderStatus);
     setEditingTracking(order.trackingCode || "");
@@ -65,169 +184,478 @@ const Admin = () => {
 
   const saveOrderChanges = () => {
     if (!selectedOrder) return;
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === selectedOrder.id
-          ? { ...o, orderStatus: editingStatus as OrderStatus, trackingCode: editingTracking || undefined }
-          : o
-      )
+    saveOrderMutation.mutate({
+      id: selectedOrder.id,
+      payload: { orderStatus: editingStatus, trackingCode: editingTracking || undefined },
+    });
+  };
+
+  const updateOrderStatusQuick = (order: ApiOrder, targetStatus: string) => {
+    const trackingCode = (trackingDrafts[order.id] || order.trackingCode || "").trim();
+    if (targetStatus === "enviado" && trackingCode.length < 5) {
+      toast({
+        title: "Rastreio obrigatório",
+        description: "Informe o código de rastreio antes de marcar como enviado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    saveOrderMutation.mutate(
+      {
+        id: order.id,
+        payload: {
+          orderStatus: targetStatus,
+          trackingCode: trackingCode || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Logística atualizada", description: `Pedido #${order.orderNumber} atualizado para ${statusLabels[targetStatus]}.` });
+        },
+      },
     );
-    setSelectedOrder(null);
+  };
+
+  const copySupplierText = async (order: ApiOrder) => {
+    setCopyingSupplierId(order.id);
+    try {
+      const data = await getAdminSupplierText(order.id);
+      await navigator.clipboard.writeText(data.text);
+      toast({ title: "Texto copiado", description: `Texto do fornecedor do pedido #${order.orderNumber} copiado.` });
+    } catch (error) {
+      toast({
+        title: "Erro ao copiar texto do fornecedor",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setCopyingSupplierId(null);
+    }
   };
 
   const exportCSV = () => {
-    const headers = ["Pedido", "Data", "Cliente", "Produtos", "Total Venda", "Custo", "Frete Cobrado", "Frete Pago", "Pagamento", "Status Pgto", "Status Pedido", "Lucro"];
+    const headers = ["Pedido", "Data", "Cliente", "Produtos", "Total c/ frete", "Pagamento", "Status"];
     const rows = filtered.map((o) => [
-      o.id,
-      new Date(o.date).toLocaleDateString("pt-BR"),
+      o.orderNumber,
+      new Date(o.createdAt).toLocaleDateString("pt-BR"),
       o.customerName,
-      o.items.map((i) => `${i.productName} (${i.size}) x${i.quantity}`).join("; "),
-      getOrderTotal(o).toFixed(2),
-      getOrderCost(o).toFixed(2),
-      o.shippingCharged.toFixed(2),
-      o.shippingCost.toFixed(2),
+      o.items.map((i) => `${i.productName} (${i.variation || "-"}) x${i.quantity}`).join("; "),
+      o.totalAmount.toFixed(2),
       o.paymentMethod,
-      o.paymentStatus,
-      statusLabels[o.orderStatus],
-      getProfit(o).toFixed(2),
+      statusLabels[o.orderStatus] || o.orderStatus,
     ]);
-
     const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pedidos-pe-na-bola-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `pedidos-arquibancada-12-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const totalRevenue = filtered.reduce((s, o) => s + getOrderTotal(o), 0);
+  const totalRevenue = filtered.reduce((s, o) => s + o.totalAmount, 0);
   const totalProfit = filtered.reduce((s, o) => s + getProfit(o), 0);
+
+  const shippingPolicies = settingsData?.shippingPolicies ?? [];
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="font-heading text-4xl text-foreground">PAINEL ADMINISTRATIVO</h1>
-            <p className="text-sm text-muted-foreground">Gerencie seus pedidos</p>
-          </div>
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2">
           <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground transition-colors hover:border-primary hover:text-primary"
+            onClick={() => setTab("pedidos")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm ${tab === "pedidos" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
           >
-            <Download className="h-4 w-4" />
-            Exportar CSV
+            <ShoppingBag className="h-4 w-4" /> Pedidos
+          </button>
+          <button
+            onClick={() => setTab("logistica")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm ${tab === "logistica" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+          >
+            <Truck className="h-4 w-4" /> Logística
+          </button>
+          <button
+            onClick={() => setTab("relatorios")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm ${tab === "relatorios" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+          >
+            <BarChart3 className="h-4 w-4" /> Relatórios e Vendas
+          </button>
+          <button
+            onClick={() => setTab("config")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm ${tab === "config" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+          >
+            <Settings className="h-4 w-4" /> Configurações do Projeto
           </button>
         </div>
 
-        {/* Summary */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {[
-            { label: "Total Pedidos", value: filtered.length.toString() },
-            { label: "Faturamento", value: `R$ ${totalRevenue.toFixed(2).replace(".", ",")}` },
-            { label: "Lucro Estimado", value: `R$ ${totalProfit.toFixed(2).replace(".", ",")}`, highlight: true },
-            { label: "Pendentes", value: filtered.filter((o) => o.orderStatus === "aguardando").length.toString() },
-          ].map((card) => (
-            <div key={card.label} className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">{card.label}</p>
-              <p className={`mt-1 font-heading text-2xl ${card.highlight ? "text-primary" : "text-foreground"}`}>
-                {card.value}
-              </p>
+        {tab === "pedidos" && (
+          <>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="font-heading text-4xl text-foreground">PAINEL ADMINISTRATIVO</h1>
+                <p className="text-sm text-muted-foreground">Gerencie seus pedidos</p>
+              </div>
+              <button
+                onClick={exportCSV}
+                disabled={filtered.length === 0}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Filters */}
-        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Buscar por ID ou cliente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none rounded-lg border border-border bg-card px-4 py-2 pr-10 text-sm text-foreground focus:border-primary focus:outline-none"
-            >
-              <option value="todos">Todos os Status</option>
-              {Object.entries(statusLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+            <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+              {[
+                { label: "Total Pedidos", value: filtered.length.toString() },
+                { label: "Faturamento (inclui frete)", value: asCurrency(totalRevenue) },
+                { label: "Lucro Estimado", value: asCurrency(totalProfit), highlight: true },
+                { label: "Pendentes", value: filtered.filter((o) => o.orderStatus === "aguardando").length.toString() },
+              ].map((card) => (
+                <div key={card.label} className="rounded-lg border border-border bg-card p-4">
+                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                  <p className={`mt-1 font-heading text-2xl ${card.highlight ? "text-primary" : "text-foreground"}`}>{card.value}</p>
+                </div>
               ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
-        </div>
+            </div>
 
-        {/* Table */}
-        <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[900px]">
-            <thead>
-              <tr className="border-b border-border bg-secondary/50 text-left">
-                {["Pedido", "Data", "Cliente", "Produtos", "Total", "Custo", "Frete", "Pagamento", "Status Pgto", "Status", "Lucro"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-xs font-medium text-muted-foreground">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((order) => (
-                <tr
-                  key={order.id}
-                  onClick={() => openDetail(order)}
-                  className="cursor-pointer border-b border-border transition-colors hover:bg-secondary/30"
+            <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar por ID, número ou cliente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm text-foreground"
+                />
+              </div>
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-card px-4 py-2 pr-10 text-sm text-foreground"
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{order.id}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(order.date).toLocaleDateString("pt-BR")}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-foreground">{order.customerName}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {order.items.map((i) => `${i.productName} (${i.size})`).join(", ")}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-foreground">
-                    R$ {getOrderTotal(order).toFixed(2).replace(".", ",")}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    R$ {getOrderCost(order).toFixed(2).replace(".", ",")}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {order.shippingCharged.toFixed(0)}/{order.shippingCost.toFixed(0)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{order.paymentMethod}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${paymentColors[order.paymentStatus]}`}>
-                      {order.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[order.orderStatus]}`}>
-                      {statusLabels[order.orderStatus]}
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 text-sm font-medium ${getProfit(order) >= 0 ? "text-green-400" : "text-destructive"}`}>
-                    R$ {getProfit(order).toFixed(2).replace(".", ",")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  <option value="todos">Todos os Status</option>
+                  {Object.entries(statusLabels).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
 
-        {filtered.length === 0 && (
-          <div className="py-12 text-center text-muted-foreground">
-            <Package className="mx-auto h-10 w-10 opacity-50" />
-            <p className="mt-2">Nenhum pedido encontrado.</p>
-          </div>
+            {loadingOrders ? (
+              <p className="mt-6 text-sm text-muted-foreground">Carregando pedidos...</p>
+            ) : (
+              <div className="mt-6 overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/50 text-left">
+                      {["Pedido", "Data", "Cliente", "Produtos", "Total (c/ frete)", "Pagamento", "Status", "Lucro"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-xs font-medium text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((order) => (
+                      <tr key={order.id} onClick={() => openDetail(order)} className="cursor-pointer border-b border-border hover:bg-secondary/30">
+                        <td className="px-4 py-3 text-sm font-medium text-primary">#{order.orderNumber}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString("pt-BR")}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{order.customerName}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{order.items.map((i) => `${i.productName} (${i.variation || "-"})`).join(", ")}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{asCurrency(order.totalAmount)}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{order.paymentMethod}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[order.orderStatus] || "bg-secondary text-foreground"}`}>
+                            {statusLabels[order.orderStatus] || order.orderStatus}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-sm font-medium ${getProfit(order) >= 0 ? "text-green-400" : "text-destructive"}`}>
+                          {asCurrency(getProfit(order))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Order Detail Modal */}
+        {tab === "logistica" && (
+          <>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h1 className="font-heading text-4xl text-foreground">CENTRAL LOGÍSTICA</h1>
+                <p className="text-sm text-muted-foreground">Fluxo para funcionários: separação, envio e entrega</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {logisticsColumns.map((column) => {
+                  const amount = logisticsBase.filter((order) => order.orderStatus === column.key).length;
+                  return (
+                    <div key={column.key} className="rounded-lg border border-border bg-card px-3 py-2 text-center">
+                      <p className="text-[11px] text-muted-foreground">{column.label}</p>
+                      <p className="font-heading text-2xl text-primary">{amount}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar por pedido, cliente ou UF..."
+                  value={logisticsSearch}
+                  onChange={(e) => setLogisticsSearch(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm text-foreground"
+                />
+              </div>
+              <div className="relative">
+                <select
+                  value={logisticsStatusFilter}
+                  onChange={(e) => setLogisticsStatusFilter(e.target.value)}
+                  className="appearance-none rounded-lg border border-border bg-card px-4 py-2 pr-10 text-sm text-foreground"
+                >
+                  <option value="todos">Todas etapas</option>
+                  {logisticsColumns.map((column) => (
+                    <option key={column.key} value={column.key}>
+                      {column.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
+
+            {loadingOrders ? (
+              <p className="mt-6 text-sm text-muted-foreground">Carregando logística...</p>
+            ) : (
+              <div className="mt-6 grid gap-4 lg:grid-cols-4">
+                {logisticsColumns.map((column) => {
+                  const columnOrders = logisticsFiltered.filter((order) => order.orderStatus === column.key);
+                  const ColumnIcon = column.icon;
+                  return (
+                    <section key={column.key} className="rounded-lg border border-border bg-card">
+                      <header className="flex items-center gap-2 border-b border-border px-3 py-3">
+                        <ColumnIcon className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold text-foreground">{column.label}</h3>
+                        <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                          {columnOrders.length}
+                        </span>
+                      </header>
+                      <div className="max-h-[540px] space-y-3 overflow-y-auto p-3">
+                        {columnOrders.length === 0 && (
+                          <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                            Nenhum pedido nesta etapa.
+                          </p>
+                        )}
+
+                        {columnOrders.map((order) => (
+                          <article key={order.id} className="rounded-lg border border-border bg-secondary/30 p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-primary">#{order.orderNumber}</p>
+                              <button
+                                onClick={() => copySupplierText(order)}
+                                disabled={copyingSupplierId === order.id}
+                                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+                              >
+                                <Copy className="h-3 w-3" />
+                                Fornecedor
+                              </button>
+                            </div>
+                            <p className="mt-1 text-sm text-foreground">{order.customerName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {order.addressCity}/{order.addressState} - {asCurrency(order.totalAmount)}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {order.items.map((item) => `${item.productName} ${item.variation ? `(${item.variation})` : ""}`).join(", ")}
+                            </p>
+
+                            {(column.key === "em_separacao" || column.key === "enviado") && (
+                              <input
+                                type="text"
+                                placeholder="Código de rastreio"
+                                value={trackingDrafts[order.id] ?? order.trackingCode ?? ""}
+                                onChange={(e) => setTrackingDrafts((prev) => ({ ...prev, [order.id]: e.target.value }))}
+                                className="mt-2 w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                              />
+                            )}
+
+                            <div className="mt-2 flex gap-2">
+                              {column.key === "aguardando" && (
+                                <button
+                                  onClick={() => updateOrderStatusQuick(order, "em_separacao")}
+                                  className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground"
+                                >
+                                  Iniciar separação
+                                </button>
+                              )}
+                              {column.key === "em_separacao" && (
+                                <button
+                                  onClick={() => updateOrderStatusQuick(order, "enviado")}
+                                  className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground"
+                                >
+                                  Marcar enviado
+                                </button>
+                              )}
+                              {column.key === "enviado" && (
+                                <button
+                                  onClick={() => updateOrderStatusQuick(order, "entregue")}
+                                  className="rounded-md bg-green-600 px-2 py-1 text-xs text-white"
+                                >
+                                  Confirmar entrega
+                                </button>
+                              )}
+                              <button
+                                onClick={() => openDetail(order)}
+                                className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Detalhes
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "relatorios" && (
+          <>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as "day" | "month")} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                <option value="day">Agrupar por dia</option>
+                <option value="month">Agrupar por mês</option>
+              </select>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm" />
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm" />
+            </div>
+
+            {loadingReport ? (
+              <p className="text-sm text-muted-foreground">Carregando relatório...</p>
+            ) : reportData && (
+              <>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                  <div className="rounded-lg border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Pedidos</p><p className="mt-1 text-xl font-semibold">{reportData.summary.totalOrders}</p></div>
+                  <div className="rounded-lg border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Receita Total</p><p className="mt-1 text-xl font-semibold text-primary">{asCurrency(reportData.summary.totalRevenue)}</p></div>
+                  <div className="rounded-lg border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Receita Produtos</p><p className="mt-1 text-xl font-semibold">{asCurrency(reportData.summary.productsRevenue)}</p></div>
+                  <div className="rounded-lg border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Receita Frete</p><p className="mt-1 text-xl font-semibold">{asCurrency(reportData.summary.freightRevenue)}</p></div>
+                  <div className="rounded-lg border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Ticket Médio</p><p className="mt-1 text-xl font-semibold">{asCurrency(reportData.summary.averageTicket)}</p></div>
+                </div>
+
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <h3 className="mb-3 font-heading text-xl">Série de Vendas</h3>
+                    <div className="max-h-72 overflow-auto text-sm">
+                      {reportData.series.map((row) => (
+                        <div key={row.period} className="flex items-center justify-between border-b border-border py-2">
+                          <span className="text-muted-foreground">{row.period}</span>
+                          <span>{row.orders} pedidos</span>
+                          <strong className="text-primary">{asCurrency(row.revenue)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <h3 className="mb-3 font-heading text-xl">Top Produtos</h3>
+                    <div className="max-h-72 overflow-auto text-sm">
+                      {reportData.topProducts.map((row) => (
+                        <div key={row.productName} className="flex items-center justify-between border-b border-border py-2">
+                          <span className="max-w-[60%] truncate text-muted-foreground">{row.productName}</span>
+                          <span>{row.quantity} un.</span>
+                          <strong>{asCurrency(row.revenue)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "config" && (
+          <>
+            {loadingSettings ? (
+              <p className="text-sm text-muted-foreground">Carregando configurações...</p>
+            ) : (
+              <div className="space-y-6">
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <h3 className="font-heading text-xl">Configuração de Frete Grátis</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Defina o valor mínimo do pedido para frete grátis.</p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={0}
+                      value={freeShippingThreshold || settingsData?.config.free_shipping_threshold || "500"}
+                      onChange={(e) => setFreeShippingThreshold(e.target.value)}
+                      className="w-48 rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <button
+                      onClick={() => saveThresholdMutation.mutate(freeShippingThreshold || settingsData?.config.free_shipping_threshold || "500")}
+                      className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <h3 className="font-heading text-xl">Tabela de Frete por Região</h3>
+                  <div className="mt-4 space-y-3">
+                    {shippingPolicies.map((policy) => (
+                      <div key={policy.id} className="grid gap-2 rounded-lg border border-border p-3 md:grid-cols-4">
+                        <div>
+                          <p className="text-sm font-semibold">{policy.region}</p>
+                          <p className="text-xs text-muted-foreground">{policy.description || "-"}</p>
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={policy.price}
+                          id={`price-${policy.id}`}
+                          className="rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          defaultValue={policy.description || ""}
+                          id={`desc-${policy.id}`}
+                          className="rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            const priceInput = document.getElementById(`price-${policy.id}`) as HTMLInputElement | null;
+                            const descInput = document.getElementById(`desc-${policy.id}`) as HTMLInputElement | null;
+                            saveShippingMutation.mutate({
+                              region: policy.region,
+                              price: Number(priceInput?.value ?? policy.price),
+                              description: descInput?.value ?? policy.description ?? "",
+                            });
+                          }}
+                          className="rounded-lg border border-primary px-3 py-2 text-sm text-primary"
+                        >
+                          Atualizar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         <AnimatePresence>
           {selectedOrder && (
             <motion.div
@@ -245,7 +673,7 @@ const Admin = () => {
                 className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="font-heading text-2xl text-foreground">PEDIDO {selectedOrder.id}</h2>
+                  <h2 className="font-heading text-2xl text-foreground">PEDIDO #{selectedOrder.orderNumber}</h2>
                   <button onClick={() => setSelectedOrder(null)} className="text-muted-foreground hover:text-foreground">
                     <X className="h-5 w-5" />
                   </button>
@@ -257,63 +685,25 @@ const Admin = () => {
                     <p className="mt-1 text-sm text-foreground">{selectedOrder.customerName}</p>
                     <p className="text-xs text-muted-foreground">{selectedOrder.customerEmail}</p>
                     <p className="text-xs text-muted-foreground">{selectedOrder.customerPhone}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">{selectedOrder.customerAddress}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{buildCustomerAddress(selectedOrder)}</p>
                   </div>
                   <div>
                     <h4 className="text-xs font-medium text-muted-foreground">DATA</h4>
-                    <p className="mt-1 text-sm text-foreground">
-                      {new Date(selectedOrder.date).toLocaleString("pt-BR")}
-                    </p>
+                    <p className="mt-1 text-sm text-foreground">{new Date(selectedOrder.createdAt).toLocaleString("pt-BR")}</p>
                     <h4 className="mt-3 text-xs font-medium text-muted-foreground">PAGAMENTO</h4>
                     <p className="mt-1 text-sm text-foreground">
-                      {selectedOrder.paymentMethod} —{" "}
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${paymentColors[selectedOrder.paymentStatus]}`}>
+                      {selectedOrder.paymentMethod} -
+                      <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${paymentColors[selectedOrder.paymentStatus] || "bg-secondary text-foreground"}`}>
                         {selectedOrder.paymentStatus}
                       </span>
                     </p>
                   </div>
                 </div>
 
-                {/* Items */}
-                <div className="mt-6">
-                  <h4 className="text-xs font-medium text-muted-foreground">PRODUTOS</h4>
-                  <div className="mt-2 space-y-2">
-                    {selectedOrder.items.map((item, i) => (
-                      <div key={i} className="flex justify-between rounded-lg bg-secondary/50 px-4 py-2 text-sm">
-                        <div>
-                          <span className="text-foreground">{item.productName}</span>
-                          <span className="ml-2 text-muted-foreground">Tam: {item.size} | Qtd: {item.quantity}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-foreground">R$ {(item.salePrice * item.quantity).toFixed(2)}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">(custo: R$ {(item.cost * item.quantity).toFixed(2)})</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Financials */}
-                <div className="mt-4 rounded-lg bg-secondary/30 p-4 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total venda:</span><span className="text-foreground">R$ {getOrderTotal(selectedOrder).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Custo produtos:</span><span className="text-foreground">R$ {getOrderCost(selectedOrder).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Frete cobrado:</span><span className="text-foreground">R$ {selectedOrder.shippingCharged.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Frete pago:</span><span className="text-foreground">R$ {selectedOrder.shippingCost.toFixed(2)}</span></div>
-                  <div className="mt-2 flex justify-between border-t border-border pt-2 font-semibold">
-                    <span className="text-foreground">Lucro estimado:</span>
-                    <span className="text-primary">R$ {getProfit(selectedOrder).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Editable fields */}
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">Status do Pedido</label>
-                    <select
-                      value={editingStatus}
-                      onChange={(e) => setEditingStatus(e.target.value as OrderStatus)}
-                      className="w-full appearance-none rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-                    >
+                    <select value={editingStatus} onChange={(e) => setEditingStatus(e.target.value)} className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm">
                       {Object.entries(statusLabels).map(([key, label]) => (
                         <option key={key} value={key}>{label}</option>
                       ))}
@@ -326,32 +716,16 @@ const Admin = () => {
                       value={editingTracking}
                       onChange={(e) => setEditingTracking(e.target.value)}
                       maxLength={50}
-                      placeholder="Ex: BR123456789"
-                      className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm"
                     />
                   </div>
                 </div>
 
-                {selectedOrder.notes && (
-                  <div className="mt-4">
-                    <h4 className="text-xs font-medium text-muted-foreground">NOTAS INTERNAS</h4>
-                    <p className="mt-1 text-sm text-foreground/80">{selectedOrder.notes}</p>
-                  </div>
-                )}
-
                 <div className="mt-6 flex gap-3">
-                  <button
-                    onClick={saveOrderChanges}
-                    className="gradient-primary flex-1 rounded-lg px-6 py-2 font-heading text-primary-foreground transition-all hover:opacity-90"
-                  >
+                  <button onClick={saveOrderChanges} className="gradient-primary flex-1 rounded-lg px-6 py-2 font-heading text-primary-foreground">
                     SALVAR ALTERAÇÕES
                   </button>
-                  <button
-                    onClick={() => setSelectedOrder(null)}
-                    className="rounded-lg border border-border px-6 py-2 text-sm text-foreground transition-colors hover:border-primary"
-                  >
-                    Fechar
-                  </button>
+                  <button onClick={() => setSelectedOrder(null)} className="rounded-lg border border-border px-6 py-2 text-sm">Fechar</button>
                 </div>
               </motion.div>
             </motion.div>

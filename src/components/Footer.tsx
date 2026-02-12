@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, Twitter, MessageCircle } from "lucide-react";
-import logo from "@/assets/logo.png";
+import { criativos } from "@/data/criativos";
 
 const Footer = () => {
   return (
@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid gap-8 md:grid-cols-4">
           <div>
-            <img src={logo} alt="Pé na Bola" className="h-14 w-auto" />
+            <img src={criativos.logoSemFundo} alt="Arquibancada 12" className="h-14 w-auto" />
             <p className="mt-3 text-sm text-muted-foreground">
               Paixão por futebol e qualidade premium. As melhores camisas de times nacionais e internacionais.
             </p>
@@ -53,7 +53,7 @@ const Footer = () => {
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>📞 Pedidos: 10h às 17h</li>
               <li>💬 Atendimento até 18h</li>
-              <li>📧 contato@penabola.com</li>
+              <li>📧 contato@arquibancada12.com</li>
               <li>
                 <a href="https://wa.me/5511999999999" className="text-primary hover:underline">
                   WhatsApp
@@ -64,7 +64,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © 2026 Pé na Bola. Todos os direitos reservados.
+          © 2026 Arquibancada 12. Todos os direitos reservados.
         </div>
       </div>
     </footer>

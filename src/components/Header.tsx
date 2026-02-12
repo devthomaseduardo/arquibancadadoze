@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ShoppingCart, Menu, X, Shield, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@/assets/logo.png";
+import { criativos } from "@/data/criativos";
 
 const navLinks = [
   { to: "/", label: "Início" },
@@ -21,7 +21,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Pé na Bola" className="h-12 w-auto" />
+          <img src={criativos.logoSemFundo} alt="Arquibancada 12" className="h-12 w-auto" />
         </Link>
 
         {/* Desktop Nav */}

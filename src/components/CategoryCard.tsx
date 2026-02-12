@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import type { Category } from "@/data/categories";
+import type { StoreCategory } from "@/lib/store-mappers";
 
-const CategoryCard = ({ category, index = 0 }: { category: Category; index?: number }) => {
+const CategoryCard = ({ category, index = 0 }: { category: StoreCategory; index?: number }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
