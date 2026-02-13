@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from "react";
 
 export type CartItem = {
   productId: string;
@@ -32,6 +32,7 @@ type CartContextType = {
   clearCart: () => void;
   totalItems: number;
   subtotal: number;
+  total: number;
   appliedCoupon: CouponData | null;
   applyCoupon: (code: string) => boolean;
   removeCoupon: () => void;
@@ -41,23 +42,58 @@ type CartContextType = {
 };
 
 const CartContext = createContext<CartContextType | null>(null);
+const CART_STORAGE_KEY = "cartState";
+
+type PersistedCart = {
+  items: CartItem[];
+  appliedCoupon: CouponData | null;
+  lastUpdated: number;
+};
+
+function normalizeItem(item: CartItem): CartItem {
+  return {
+    ...item,
+    price: Number.isFinite(item.price) && item.price > 0 ? item.price : 0,
+    quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? Math.floor(item.quantity) : 1,
+    size: item.size?.trim() || "U",
+  };
+}
+
+function readPersistedCart(): PersistedCart | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedCart;
+    if (!Array.isArray(parsed.items)) return null;
+    return {
+      items: parsed.items.map(normalizeItem),
+      appliedCoupon: parsed.appliedCoupon ?? null,
+      lastUpdated: parsed.lastUpdated ?? Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponData | null>(null);
+  const persisted = readPersistedCart();
+  const [items, setItems] = useState<CartItem[]>(persisted?.items ?? []);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponData | null>(persisted?.appliedCoupon ?? null);
   const [isCartOpen, setCartOpen] = useState(false);
 
   const addItem = useCallback((item: CartItem) => {
+    const normalized = normalizeItem(item);
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === item.productId && i.size === item.size);
+      const existing = prev.find((i) => i.productId === normalized.productId && i.size === normalized.size);
       if (existing) {
         return prev.map((i) =>
-          i.productId === item.productId && i.size === item.size
-            ? { ...i, quantity: i.quantity + item.quantity }
+          i.productId === normalized.productId && i.size === normalized.size
+            ? { ...i, quantity: i.quantity + normalized.quantity }
             : i
         );
       }
-      return [...prev, item];
+      return [...prev, normalized];
     });
     setCartOpen(true);
   }, []);
@@ -67,13 +103,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateQuantity = useCallback((productId: string, size: string, qty: number) => {
-    if (qty <= 0) {
+    if (!Number.isFinite(qty) || qty <= 0) {
       removeItem(productId, size);
       return;
     }
     setItems((prev) =>
       prev.map((i) =>
-        i.productId === productId && i.size === size ? { ...i, quantity: qty } : i
+        i.productId === productId && i.size === size ? { ...i, quantity: Math.floor(qty) } : i
       )
     );
   }, [removeItem]);
@@ -83,9 +119,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedCoupon(null);
   }, []);
 
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discountAmount = appliedCoupon ? subtotal * (appliedCoupon.discount / 100) : 0;
+  const totalItems = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
+  const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items]);
+  const discountAmount = useMemo(() => appliedCoupon ? subtotal * (appliedCoupon.discount / 100) : 0, [appliedCoupon, subtotal]);
+  const total = useMemo(() => Math.max(subtotal - discountAmount, 0), [subtotal, discountAmount]);
 
   const applyCoupon = useCallback((code: string) => {
     const found = AVAILABLE_COUPONS.find((c) => c.code === code.toUpperCase().trim());
@@ -98,11 +135,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeCoupon = useCallback(() => setAppliedCoupon(null), []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload: PersistedCart = {
+      items,
+      appliedCoupon,
+      lastUpdated: Date.now(),
+    };
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new CustomEvent("cart:updated"));
+  }, [items, appliedCoupon]);
+
   return (
     <CartContext.Provider
       value={{
         items, addItem, removeItem, updateQuantity, clearCart,
-        totalItems, subtotal, appliedCoupon, applyCoupon, removeCoupon,
+        totalItems, subtotal, total, appliedCoupon, applyCoupon, removeCoupon,
         discountAmount, isCartOpen, setCartOpen,
       }}
     >

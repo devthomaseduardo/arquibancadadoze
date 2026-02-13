@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Download, X, ChevronDown, Settings, BarChart3, ShoppingBag,
@@ -7,6 +7,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import Layout from "@/components/Layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   getAdminOrders, updateAdminOrder, type ApiOrder,
   getSalesReport, getAdminSettings, updateAdminConfigKey,
@@ -55,6 +59,11 @@ const Admin = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [tab, setTab] = useState<"pedidos" | "logistica" | "metricas" | "relatorios" | "config">("pedidos");
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [adminKey, setAdminKey] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("adminKey");
+  });
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
@@ -74,15 +83,17 @@ const Admin = () => {
   const [freeShippingThreshold, setFreeShippingThreshold] = useState("500");
   const [copyingSupplierId, setCopyingSupplierId] = useState<string | null>(null);
 
-  const { data: ordersData, isLoading: loadingOrders } = useQuery({ queryKey: ["admin-orders"], queryFn: getAdminOrders });
+  const { data: ordersData, isLoading: loadingOrders } = useQuery({ queryKey: ["admin-orders"], queryFn: getAdminOrders, enabled: Boolean(adminKey) });
   const { data: reportData, isLoading: loadingReport } = useQuery({
     queryKey: ["admin-report", groupBy, dateFrom, dateTo],
     queryFn: () => getSalesReport({ groupBy, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }),
+    enabled: Boolean(adminKey),
   });
-  const { data: settingsData, isLoading: loadingSettings } = useQuery({ queryKey: ["admin-settings"], queryFn: getAdminSettings });
+  const { data: settingsData, isLoading: loadingSettings } = useQuery({ queryKey: ["admin-settings"], queryFn: getAdminSettings, enabled: Boolean(adminKey) });
   const { data: metricsData, isLoading: loadingMetrics } = useQuery({
     queryKey: ["admin-metrics", metricsDateFrom, metricsDateTo],
     queryFn: () => getMetrics(metricsDateFrom || undefined, metricsDateTo || undefined),
+    enabled: Boolean(adminKey),
   });
 
   const saveOrderMutation = useMutation({
@@ -187,6 +198,56 @@ const Admin = () => {
     { key: "relatorios" as const, icon: BarChart3, label: "Relatórios" },
     { key: "config" as const, icon: Settings, label: "Configurações" },
   ];
+
+  const handleAdminKeySubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const key = adminKeyInput.trim();
+    if (!key) {
+      toast({ title: "Chave obrigatória", description: "Informe a chave admin.", variant: "destructive" });
+      return;
+    }
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminKey", key);
+    }
+    setAdminKey(key);
+    setAdminKeyInput("");
+    toast({ title: "Acesso liberado", description: "Chave admin salva no navegador." });
+  };
+
+  if (!adminKey) {
+    return (
+      <Layout>
+        <div className="container mx-auto flex min-h-[70vh] items-center justify-center px-4 py-12">
+          <Card className="w-full max-w-xl">
+            <CardHeader>
+              <CardTitle className="text-2xl">Acesso Administrativo</CardTitle>
+              <CardDescription>Informe a chave admin para liberar o painel.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAdminKeySubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-key">Chave admin</Label>
+                  <Input
+                    id="admin-key"
+                    type="password"
+                    required
+                    value={adminKeyInput}
+                    onChange={(event) => setAdminKeyInput(event.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full">
+                  Entrar no painel
+                </Button>
+              </form>
+            </CardContent>
+            <CardFooter className="text-xs text-muted-foreground">
+              A chave fica salva apenas neste navegador.
+            </CardFooter>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ArrowLeft, ShoppingCart, MessageCircle, Ruler, Star, Truck, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
@@ -8,15 +8,24 @@ import { getProductBySlug } from "@/lib/api";
 import { getCatalogInfoByMediaPath, getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreProductDetail } from "@/lib/store-mappers";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
+import ProductGallery from "@/components/ProductGallery";
+import { formatCurrency } from "@/lib/utils";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const ProductDetail = () => {
   const { slug } = useParams();
   const [selectedSize, setSelectedSize] = useState("");
   const [customName, setCustomName] = useState("");
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [customNumber, setCustomNumber] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
   const { addItem } = useCart();
+  const [finalPrice, setFinalPrice] = useState(0);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["product", slug],
@@ -31,22 +40,22 @@ const ProductDetail = () => {
     const list = [product.image, ...media];
     return [...new Set(list)];
   }, [product]);
-  const activeImage = gallery[activeImageIndex] || product?.image;
+  const activeImage = gallery[0] || product?.image; // Initial fallback
   const catalogInfo = activeImage ? getCatalogInfoByMediaPath(activeImage) : null;
   const teamName = catalogInfo?.clube || (activeImage ? getTeamByMediaPath(activeImage) : "Não identificado");
+  const personalizationCost = (customName || customNumber) ? 15 : 0;
 
   useEffect(() => {
-    setActiveImageIndex(0);
-  }, [slug]);
+    if (product) {
+      setFinalPrice(product.priceMin + personalizationCost);
+    }
+  }, [product, personalizationCost]);
 
-  const nextImage = () => {
-    if (gallery.length <= 1) return;
-    setActiveImageIndex((prev) => (prev + 1) % gallery.length);
-  };
-  const prevImage = () => {
-    if (gallery.length <= 1) return;
-    setActiveImageIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
-  };
+  useEffect(() => {
+    setSelectedSize("");
+    setCustomName("");
+    setCustomNumber("");
+  }, [slug]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -120,43 +129,8 @@ const ProductDetail = () => {
         </Link>
 
         <div className="grid gap-8 md:grid-cols-2">
-          <div className="space-y-3">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="relative overflow-hidden rounded-lg border border-border bg-card"
-            >
-              <img src={activeImage} alt={product.name} className="h-full w-full object-cover" />
-              {gallery.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/80 p-2 text-foreground backdrop-blur hover:border-primary"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/80 p-2 text-foreground backdrop-blur hover:border-primary"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </motion.div>
-            {gallery.length > 1 && (
-              <div className="grid grid-cols-5 gap-2">
-                {gallery.slice(0, 10).map((img, idx) => (
-                  <button
-                    key={`${img}-${idx}`}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`overflow-hidden rounded-md border ${idx === activeImageIndex ? "border-primary" : "border-border"}`}
-                  >
-                    <img src={img} alt={`Miniatura ${idx + 1}`} className="h-16 w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="space-y-6">
+            <ProductGallery images={gallery.length > 0 ? gallery : [product.image]} productName={product.name} />
           </div>
 
           <motion.div
@@ -165,92 +139,124 @@ const ProductDetail = () => {
             transition={{ delay: 0.1 }}
           >
             {product.badge && (
-              <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">
+              <span className="inline-block rounded bg-accent px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white mb-2">
                 {product.badge}
               </span>
             )}
-            <p className="mt-3 text-sm text-muted-foreground">{teamName}</p>
-            <h1 className="mt-1 font-heading text-4xl text-foreground">{product.name}</h1>
-            <Link
-              to={`/produtos?cat=${product.categorySlug}`}
-              className="mt-1 inline-block text-xs text-primary hover:underline"
-            >
-              {product.categoryName}
-            </Link>
 
-            <p className="mt-6 font-heading text-4xl text-primary">R$ {product.priceMin.toFixed(2).replace(".", ",")}</p>
-            {product.priceMax > product.priceMin && (
-              <p className="mt-1 text-sm text-foreground/80">
-                Faixa sugerida: <strong>R$ {product.priceMin.toFixed(2).replace(".", ",")} a R$ {product.priceMax.toFixed(2).replace(".", ",")}</strong>
+            <div className="flex items-center gap-2 text-sm text-primary font-bold uppercase tracking-widest">
+              <span>{teamName}</span>
+              <span className="h-1 w-1 rounded-full bg-primary" />
+              <span>{product.categoryName}</span>
+            </div>
+
+            <h1 className="mt-2 font-heading text-3xl md:text-5xl text-white leading-tight">{product.name}</h1>
+
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex text-primary">
+                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-primary" />)}
+              </div>
+              <span className="text-sm text-muted-foreground">(4.9/5 - 120 avaliações)</span>
+            </div>
+
+            <div className="mt-6 p-4 rounded-xl border border-white/5 bg-zinc-900/50">
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm text-muted-foreground line-through">R$ {(product.priceMin * 1.4).toFixed(2).replace(".", ",")}</span>
+                <span className="font-heading text-4xl text-white">{formatCurrency(finalPrice)}</span>
+              </div>
+              <p className="text-green-400 text-sm font-medium mt-1">
+                5% de desconto no PIX: <span className="font-bold">{formatCurrency(finalPrice * 0.95)}</span>
               </p>
-            )}
-            <p className="mt-1 text-sm text-muted-foreground">
-              até 3x de R$ {(product.priceMin / 3).toFixed(2).replace(".", ",")} sem juros
-            </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                ou em até 12x no cartão de crédito
+              </p>
+            </div>
 
-            <p className="mt-6 text-sm text-foreground/80">{product.description || "Produto sem descrição."}</p>
-
-            <div className="mt-6">
-              <p className="mb-3 text-sm font-medium text-foreground">Tamanho:</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-white uppercase tracking-wide">Selecionar Tamanho</span>
+                <button className="text-xs text-primary underline flex items-center gap-1 hover:text-white transition-colors">
+                  <Ruler className="h-3 w-3" /> Guia de Medidas
+                </button>
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                 {product.sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`min-w-[48px] rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
-                      selectedSize === size
-                        ? "border-primary bg-primary text-primary-foreground neon-glow"
-                        : "border-border text-foreground hover:border-primary"
-                    }`}
+                    className={`h-12 rounded-lg border text-sm font-bold transition-all relative overflow-hidden ${selectedSize === size
+                      ? "border-primary bg-primary text-white shadow-[0_0_15px_rgba(124,58,237,0.5)]"
+                      : "border-white/10 bg-zinc-900 text-white hover:border-white/30 hover:bg-zinc-800"
+                      }`}
                   >
                     {size}
+                    {selectedSize === size && (
+                      <motion.div layoutId="size-check" className="absolute inset-0 border-2 border-white/20 rounded-lg pointer-events-none" />
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="mt-5">
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Nome para personalização (opcional)
-              </label>
-              <input
-                type="text"
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value.slice(0, 15))}
-                placeholder="Ex: THOMAS"
-                maxLength={15}
-                className="w-full rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Até 15 caracteres para estampar na camisa.
-              </p>
+            <div className="mt-8 pt-6 border-t border-white/5">
+              <div className="mb-4">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wide mb-2">Personalização (+ R$ 15,00)</h3>
+                <p className="text-xs text-muted-foreground mb-4">Adicione Nome e Número para tornar seu manto único.</p>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground uppercase">Nome</label>
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value.slice(0, 15).toUpperCase())}
+                      placeholder="Ex: RONALDO"
+                      maxLength={15}
+                      className="w-full rounded-lg border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary uppercase placeholder:text-zinc-600 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground uppercase">Número</label>
+                    <input
+                      type="text"
+                      value={customNumber}
+                      onChange={(e) => setCustomNumber(e.target.value.slice(0, 2).replace(/\D/g, ''))}
+                      placeholder="Ex: 9"
+                      maxLength={2}
+                      className="w-full rounded-lg border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-zinc-600 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3">
               <button
                 onClick={handleBuyNow}
-                className="gradient-primary flex items-center justify-center gap-2 rounded-lg px-8 py-3 font-heading text-lg text-primary-foreground transition-all hover:opacity-90 neon-glow"
+                className="w-full gradient-primary flex items-center justify-center gap-2 rounded-lg px-8 py-4 font-heading text-xl text-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
               >
                 <ShoppingCart className="h-5 w-5" />
                 COMPRAR AGORA
               </button>
-              <button
-                onClick={handleAddToCart}
-                className="flex items-center justify-center gap-2 rounded-lg border border-primary px-8 py-3 font-heading text-lg text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-              >
-                <Plus className="h-5 w-5" />
-                ADICIONAR AO CARRINHO
-              </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 font-heading text-sm text-white hover:bg-white/10 transition-colors uppercase tracking-wider"
+                >
+                  Adicionar à Sacola
+                </button>
+                <a
+                  href={`https://wa.me/5511999999999?text=Olá! Tenho interesse na ${encodeURIComponent(product.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 font-heading text-sm text-green-500 hover:bg-green-500/20 transition-colors uppercase tracking-wider"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Dúvidas no Whats
+                </a>
+              </div>
             </div>
-            <a
-              href={`https://wa.me/5511999999999?text=Olá! Tenho interesse na ${encodeURIComponent(product.name)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-border px-8 py-3 font-heading text-lg text-foreground transition-colors hover:border-primary hover:text-primary"
-            >
-              <MessageCircle className="h-5 w-5" />
-              WHATSAPP
-            </a>
 
             <div className="mt-8 rounded-lg border border-primary/30 bg-gradient-to-r from-primary/20 via-background to-secondary/30 p-4 text-sm">
               <p className="font-semibold text-primary">MODO TORCIDA ATIVADO</p>

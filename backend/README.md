@@ -91,6 +91,7 @@ npm run db:down
 | POST | `/api/payments/mercadopago/card` | Pagamento com cartão (orderId, token, paymentMethodId) |
 | POST | `/api/payments/mercadopago/demo-preference` | Cria preferência MP sem pedido (demo, só dev; requer `X-Admin-Key`) |
 | POST | `/api/payments/mercadopago/demo` | Cria pedido + preferência MP (demo, só dev; requer `X-Admin-Key`) |
+| POST | `/api/payments/mercadopago/webhook` | Webhook MP para atualizar status do pedido |
 
 ### Admin (header `X-Admin-Key: <ADMIN_API_KEY>` ou query `?adminKey=...`)
 
@@ -106,6 +107,7 @@ npm run db:down
 | GET | `/api/admin/export/orders` | Exportar pedidos CSV ou XLSX (`?format=xlsx&dateFrom=&dateTo=`) |
 | GET/POST/PATCH | `/api/admin/returns` | Listar, criar e atualizar trocas/devoluções |
 | GET/PUT | `/api/content/config/:key` | Ler/editar config (about, contact_whatsapp, etc.) |
+| POST | `/api/admin/seed` | Reaplica seed (categorias/produtos/frete/FAQ) |
 
 ## Variáveis de ambiente
 
@@ -166,6 +168,7 @@ Para integrar com a Nuvemshop (estoque, pagamentos, checkout):
 - Frontend da loja (vitrine + checkout) consumindo esta API
 - Painel admin (React/Vue/etc.) com lista de pedidos, filtros, métricas e exportação
 - Webhook handler Nuvemshop em `/api/webhooks/nuvemshop`
+- Configurar webhook do Mercado Pago em `/api/payments/mercadopago/webhook` para atualizar pagamentos automaticamente
 - Opção de gerar etiqueta de envio (integrar com API dos Correios ou transportadora)
 
 ## Deploy na Vercel

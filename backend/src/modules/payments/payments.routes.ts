@@ -5,6 +5,8 @@ import { badRequest } from "../../shared/errors.js";
 import { adminAuth } from "../../shared/middlewares.js";
 import { env } from "../../config/env.js";
 import * as ordersService from "../orders/orders.service.js";
+import { ORDER_STATUS } from "../../config/constants.js";
+import { z } from "zod";
 
 const router = Router();
 
@@ -198,6 +200,51 @@ router.post("/mercadopago/demo", adminAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * Webhook Mercado Pago: atualiza status do pedido baseado no pagamento.
+ * Deve ser configurado no painel do MP.
+ */
+router.post("/mercadopago/webhook", async (req, res, next) => {
+  try {
+    const body = req.body as { type?: string; data?: { id?: string | number } };
+    const idFromBody = body?.data?.id ? String(body.data.id) : null;
+    const idFromQuery = req.query["data.id"] ? String(req.query["data.id"]) : null;
+    const paymentId = idFromBody || idFromQuery;
+
+    if (!paymentId) {
+      return res.status(200).json({ received: true });
+    }
+
+    const payment = await mpService.getPaymentById(paymentId);
+    const orderId = payment.external_reference;
+    if (!orderId) {
+      return res.status(200).json({ received: true });
+    }
+
+    const mappedStatus = mpService.mapMpStatus(payment.status);
+    const existingOrder = await prisma.order.findUnique({ where: { id: String(orderId) } });
+    if (!existingOrder) return res.status(200).json({ received: true });
+
+    const nextStatus =
+      mappedStatus === "aprovado" && existingOrder.orderStatus === ORDER_STATUS.AWAITING
+        ? ORDER_STATUS.PICKING
+        : undefined;
+
+    await prisma.order.update({
+      where: { id: String(orderId) },
+      data: {
+        paymentStatus: mappedStatus,
+        mercadopagoPaymentId: String(payment.id ?? paymentId),
+        orderStatus: nextStatus,
+      },
+    });
+
+    return res.status(200).json({ received: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** Processa pagamento com cartão (token do frontend). */
 router.post("/mercadopago/card", async (req, res, next) => {
   try {
@@ -233,6 +280,126 @@ router.post("/mercadopago/card", async (req, res, next) => {
       paymentId: result.id,
       status: result.status,
       paymentStatus,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const transparentSchema = z.object({
+  customerName: z.string().min(2),
+  customerEmail: z.string().email(),
+  customerPhone: z.string().optional(),
+  addressStreet: z.string().min(2),
+  addressNumber: z.string().min(1),
+  addressComplement: z.string().optional(),
+  addressNeighborhood: z.string().optional(),
+  addressCity: z.string().min(2),
+  addressState: z.string().min(2),
+  addressZip: z.string().min(5),
+  shippingCost: z.number().nonnegative(),
+  items: z.array(
+    z.object({
+      productId: z.string().optional(),
+      productName: z.string().min(1),
+      variation: z.string().optional(),
+      quantity: z.number().int().positive(),
+      unitPrice: z.number().positive(),
+      unitCost: z.number().optional(),
+    }),
+  ).min(1),
+  payment: z.object({
+    token: z.string().optional(),
+    paymentMethodId: z.string().min(1),
+    installments: z.number().int().positive().optional(),
+    issuerId: z.string().optional(),
+    payer: z.object({
+      email: z.string().email().optional(),
+      identification: z.object({
+        type: z.string().optional(),
+        number: z.string().optional(),
+      }).optional(),
+    }).optional(),
+  }),
+});
+
+router.post("/mercadopago/transparent", async (req, res, next) => {
+  try {
+    const parsed = transparentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join("; ");
+      throw badRequest(msg || "Dados inválidos para pagamento.");
+    }
+
+    const payload = parsed.data;
+    const productIds = payload.items.map((item) => item.productId).filter(Boolean) as string[];
+    if (productIds.length) {
+      const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      for (const item of payload.items) {
+        if (!item.productId) continue;
+        const product = productMap.get(item.productId);
+        if (!product) throw badRequest("Produto inválido.");
+        if (item.unitPrice < product.priceMin || item.unitPrice > product.priceMax) {
+          throw badRequest("Preço do item inválido.");
+        }
+      }
+    }
+
+    const subtotal = payload.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const totalAmount = subtotal + payload.shippingCost;
+
+    const paymentResult = await mpService.createPayment({
+      transaction_amount: totalAmount,
+      token: payload.payment.token,
+      payment_method_id: payload.payment.paymentMethodId,
+      payer: {
+        email: payload.payment.payer?.email || payload.customerEmail,
+        identification: payload.payment.payer?.identification,
+      },
+      description: `Compra Arquibancada 12`,
+      installments: payload.payment.installments,
+      issuer_id: payload.payment.issuerId,
+    });
+
+    const mappedStatus = mpService.mapMpStatus(paymentResult.status);
+    if (mappedStatus === "estornado") {
+      return res.status(402).json({
+        paymentId: paymentResult.id ?? null,
+        paymentStatus: mappedStatus,
+        statusDetail: paymentResult.status_detail ?? null,
+      });
+    }
+
+    const order = await ordersService.createOrder({
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      addressStreet: payload.addressStreet,
+      addressNumber: payload.addressNumber,
+      addressComplement: payload.addressComplement,
+      addressNeighborhood: payload.addressNeighborhood,
+      addressCity: payload.addressCity,
+      addressState: payload.addressState.toUpperCase(),
+      addressZip: payload.addressZip,
+      paymentMethod: paymentResult.payment_type_id || payload.payment.paymentMethodId,
+      paymentStatus: mappedStatus,
+      orderStatus: ORDER_STATUS.AWAITING,
+      items: payload.items,
+      shippingCost: payload.shippingCost,
+      source: "frontend-checkout-transparent",
+      mercadopagoPaymentId: paymentResult.id ? String(paymentResult.id) : undefined,
+    });
+
+    res.json({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      paymentId: paymentResult.id ?? null,
+      paymentStatus: mappedStatus,
+      statusDetail: paymentResult.status_detail ?? null,
+      pixQrCode: paymentResult.qr_code ?? null,
+      pixQrCodeBase64: paymentResult.qr_code_base64 ?? null,
+      ticketUrl: paymentResult.ticket_url ?? null,
     });
   } catch (e) {
     next(e);

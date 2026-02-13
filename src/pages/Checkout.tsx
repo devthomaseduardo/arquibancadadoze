@@ -1,9 +1,14 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BadgeCheck, CreditCard, ExternalLink, MapPin, PackageCheck, ShieldCheck, Tag, Truck } from "lucide-react";
 import Layout from "@/components/Layout";
-import { createMercadoPagoDemoPurchase, createOrder, getShippingQuote } from "@/lib/api";
+import {
+  createMercadoPagoDemoPurchase,
+  createMercadoPagoTransparentPayment,
+  getMercadoPagoPublicKey,
+  getShippingQuote,
+} from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 
@@ -18,7 +23,6 @@ type CheckoutForm = {
   addressCity: string;
   addressState: string;
   addressZip: string;
-  paymentMethod: string;
 };
 
 const defaultForm: CheckoutForm = {
@@ -32,7 +36,6 @@ const defaultForm: CheckoutForm = {
   addressCity: "",
   addressState: "",
   addressZip: "",
-  paymentMethod: "pix",
 };
 
 const Checkout = () => {
@@ -42,6 +45,15 @@ const Checkout = () => {
   const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
   const [couponInput, setCouponInput] = useState("");
   const [demoCheckoutUrl, setDemoCheckoutUrl] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [transparentResult, setTransparentResult] = useState<{
+    paymentStatus: string;
+    pixQrCode?: string | null;
+    pixQrCodeBase64?: string | null;
+    ticketUrl?: string | null;
+  } | null>(null);
+  const brickInitialized = useRef(false);
+  const lastBrickAmount = useRef<number | null>(null);
 
   const cartSubtotal = subtotal;
   const stateForQuote = form.addressState.trim().toUpperCase();
@@ -53,22 +65,11 @@ const Checkout = () => {
   const shippingCost = quote?.finalShippingCost ?? 35;
   const total = cartSubtotal - discountAmount + shippingCost;
 
-  const mutation = useMutation({
-    mutationFn: createOrder,
-    onSuccess: (order) => {
-      setCreatedOrderNumber(order.orderNumber);
-      clearCart();
-      setDemoCheckoutUrl(null);
-      toast({ title: "Pedido criado com sucesso", description: `Pedido #${order.orderNumber} recebido.` });
-    },
-    onError: (err) => {
-      toast({
-        title: "Erro ao finalizar compra",
-        description: err instanceof Error ? err.message : "Tente novamente.",
-        variant: "destructive",
-      });
-    },
-  });
+  useEffect(() => {
+    getMercadoPagoPublicKey()
+      .then((data) => setPublicKey(data.publicKey || null))
+      .catch(() => setPublicKey(null));
+  }, []);
 
   const handleApplyCoupon = () => {
     if (applyCoupon(couponInput)) {
@@ -138,31 +139,109 @@ const Checkout = () => {
       toast({ title: "Carrinho vazio", description: "Adicione produtos antes de finalizar.", variant: "destructive" });
       return;
     }
-
-    mutation.mutate({
-      customerName: form.customerName,
-      customerEmail: form.customerEmail,
-      customerPhone: form.customerPhone,
-      addressStreet: form.addressStreet,
-      addressNumber: form.addressNumber,
-      addressComplement: form.addressComplement || undefined,
-      addressNeighborhood: form.addressNeighborhood || undefined,
-      addressCity: form.addressCity,
-      addressState: form.addressState.toUpperCase(),
-      addressZip: form.addressZip,
-      paymentMethod: form.paymentMethod,
-      shippingCost,
-      notes: appliedCoupon ? `Cupom aplicado: ${appliedCoupon.code}` : undefined,
-      source: "frontend-checkout",
-      items: items.map((item) => ({
-        productId: item.productId,
-        productName: item.name,
-        variation: item.customName ? `${item.size} | Nome: ${item.customName}` : item.size,
-        quantity: item.quantity,
-        unitPrice: item.price,
-      })),
-    });
   };
+
+  const brickAmount = useMemo(() => Number(total.toFixed(2)), [total]);
+
+  useEffect(() => {
+    if (lastBrickAmount.current !== null && lastBrickAmount.current !== brickAmount) {
+      brickInitialized.current = false;
+    }
+    lastBrickAmount.current = brickAmount;
+  }, [brickAmount]);
+
+  useEffect(() => {
+    if (!publicKey || brickInitialized.current || items.length === 0) return;
+    const mp = (window as typeof window & { MercadoPago?: any }).MercadoPago;
+    if (!mp) return;
+
+    const instance = new mp(publicKey, { locale: "pt-BR" });
+    const bricks = instance.bricks();
+    const containerId = "mp-payment-brick";
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
+
+    bricks
+      .create("payment", containerId, {
+        initialization: { amount: brickAmount },
+        customization: {
+          paymentMethods: {
+            creditCard: "all",
+            debitCard: "all",
+            ticket: "all",
+            bankTransfer: "all",
+          },
+        },
+        callbacks: {
+          onReady: () => {
+            brickInitialized.current = true;
+          },
+          onSubmit: async (formData: any) => {
+            if (!form.customerName || !form.customerEmail || !form.addressStreet || !form.addressCity || !form.addressState || !form.addressZip) {
+              toast({ title: "Dados incompletos", description: "Preencha seus dados antes de pagar.", variant: "destructive" });
+              throw new Error("Dados do cliente incompletos");
+            }
+
+            const response = await createMercadoPagoTransparentPayment({
+              customerName: form.customerName,
+              customerEmail: form.customerEmail,
+              customerPhone: form.customerPhone || undefined,
+              addressStreet: form.addressStreet,
+              addressNumber: form.addressNumber,
+              addressComplement: form.addressComplement || undefined,
+              addressNeighborhood: form.addressNeighborhood || undefined,
+              addressCity: form.addressCity,
+              addressState: form.addressState.toUpperCase(),
+              addressZip: form.addressZip,
+              shippingCost,
+              items: items.map((item) => ({
+                productId: item.productId,
+                productName: item.name,
+                variation: item.customName ? `${item.size} | Nome: ${item.customName}` : item.size,
+                quantity: item.quantity,
+                unitPrice: item.price,
+              })),
+              payment: {
+                token: formData.token,
+                paymentMethodId: formData.payment_method_id,
+                installments: formData.installments,
+                issuerId: formData.issuer_id,
+                payer: {
+                  email: formData.payer?.email,
+                  identification: formData.payer?.identification,
+                },
+              },
+            });
+
+            setCreatedOrderNumber(response.orderNumber || null);
+            setTransparentResult({
+              paymentStatus: response.paymentStatus,
+              pixQrCode: response.pixQrCode,
+              pixQrCodeBase64: response.pixQrCodeBase64,
+              ticketUrl: response.ticketUrl,
+            });
+
+            if (response.paymentStatus === "aprovado") {
+              clearCart();
+              toast({ title: "Pagamento aprovado", description: "Pedido confirmado com sucesso." });
+            } else {
+              toast({ title: "Pagamento pendente", description: "Finalize o pagamento usando os dados exibidos." });
+            }
+          },
+          onError: (err: any) => {
+            toast({
+              title: "Erro no pagamento",
+              description: err?.message || "Tente novamente.",
+              variant: "destructive",
+            });
+          },
+        },
+      })
+      .catch(() => {
+        toast({ title: "Erro ao carregar pagamento", description: "Tente recarregar a página.", variant: "destructive" });
+      });
+  }, [publicKey, brickAmount, items, form, shippingCost, toast, clearCart]);
 
   if (items.length === 0 && !createdOrderNumber) {
     return (
@@ -196,18 +275,8 @@ const Checkout = () => {
 
           {createdOrderNumber ? (
             <div className="mt-6 rounded-lg border border-primary/30 bg-primary/10 p-5">
-              <p className="text-lg font-semibold text-foreground">Pedido confirmado: #{createdOrderNumber}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Recebemos seu pedido e vamos continuar o atendimento.</p>
-              {demoCheckoutUrl && (
-                <a
-                  href={demoCheckoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  Abrir pagamento no Mercado Pago <ExternalLink className="h-4 w-4" />
-                </a>
-              )}
+              <p className="text-lg font-semibold text-foreground">Pedido criado: #{createdOrderNumber}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Pagamento em andamento.</p>
               <Link to="/produtos" className="mt-4 inline-block text-primary hover:underline">
                 Continuar comprando
               </Link>
@@ -288,22 +357,45 @@ const Checkout = () => {
                 onChange={(e) => setForm({ ...form, addressZip: e.target.value })}
                 className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
               />
-              <select
-                value={form.paymentMethod}
-                onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              >
-                <option value="pix">Pix</option>
-                <option value="cartao">Cartão</option>
-                <option value="boleto">Boleto</option>
-              </select>
+              <div className="mt-4 rounded-lg border border-border bg-card p-4">
+                <p className="text-sm font-semibold text-foreground">Pagamento seguro</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Finalize o pagamento sem sair desta página (Pix, Cartão ou Boleto).
+                </p>
+                {publicKey ? (
+                  <div id="mp-payment-brick" className="mt-3" />
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">Carregando meios de pagamento...</p>
+                )}
+              </div>
 
-              <button
-                disabled={mutation.isPending}
-                className="gradient-primary mt-2 rounded-lg px-6 py-3 font-heading text-lg text-primary-foreground disabled:opacity-60"
-              >
-                {mutation.isPending ? "FINALIZANDO..." : "FINALIZAR PEDIDO"}
-              </button>
+              {transparentResult?.pixQrCodeBase64 && (
+                <div className="mt-4 rounded-lg border border-border bg-card p-4">
+                  <p className="text-sm font-semibold text-foreground">Pix disponível</p>
+                  <img
+                    src={`data:image/png;base64,${transparentResult.pixQrCodeBase64}`}
+                    alt="QR Code Pix"
+                    className="mt-3 h-44 w-44"
+                  />
+                  {transparentResult.pixQrCode && (
+                    <p className="mt-2 break-all text-xs text-muted-foreground">{transparentResult.pixQrCode}</p>
+                  )}
+                </div>
+              )}
+
+              {transparentResult?.ticketUrl && (
+                <div className="mt-4 rounded-lg border border-border bg-card p-4">
+                  <p className="text-sm font-semibold text-foreground">Boleto gerado</p>
+                  <a
+                    href={transparentResult.ticketUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+                  >
+                    Abrir boleto <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
 
               {import.meta.env.DEV && (
                 <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
@@ -314,7 +406,7 @@ const Checkout = () => {
                   <button
                     type="button"
                     onClick={handleDemoPurchase}
-                    disabled={mutation.isPending || demoMutation.isPending}
+                    disabled={demoMutation.isPending}
                     className="mt-3 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-60"
                   >
                     {demoMutation.isPending ? "GERANDO COMPRA DEMO..." : "COMPRA DEMO (MERCADO PAGO)"}

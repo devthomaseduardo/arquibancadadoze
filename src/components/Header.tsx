@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, Menu, X, Shield, Search } from "lucide-react";
+import { ShoppingCart, Menu, X, Search, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { criativos } from "@/data/criativos";
 import NavLink from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navLinks = [
   { to: "/", label: "Início" },
@@ -21,6 +22,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { totalItems, setCartOpen } = useCart();
+  const { user } = useAuth();
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -87,12 +89,12 @@ const Header = () => {
           </button>
 
           <Link
-            to="/admin"
-            className="hidden items-center gap-2 border border-primary/20 bg-pitch-light px-4 py-1.5 text-xs font-bold uppercase transition-all hover:border-primary hover:bg-primary/10 md:flex"
+            to="/login"
+            className="hidden items-center gap-2 border border-white/10 bg-pitch-light px-4 py-1.5 text-xs font-bold uppercase transition-all hover:border-primary hover:bg-primary/10 md:flex"
           >
             <span className="skew-content flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              Admin
+              <User className="h-4 w-4 text-primary" />
+              {user ? user.name.split(" ")[0] : "Entrar"}
             </span>
           </Link>
 
@@ -143,9 +145,9 @@ const Header = () => {
                   </Link>
                 ))}
                 <div className="mt-auto border-t border-white/10 pt-6">
-                  <Link to="/admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 font-heading text-lg text-primary">
-                    <Shield className="h-6 w-6" />
-                    Painel Administrativo
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 font-heading text-lg text-white">
+                    <User className="h-6 w-6 text-primary" />
+                    {user ? "Minha conta" : "Entrar"}
                   </Link>
                 </div>
               </div>

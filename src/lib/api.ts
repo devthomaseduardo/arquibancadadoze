@@ -208,12 +208,45 @@ export type CreateMercadoPagoDemoPayload = {
   backUrlPending?: string;
 };
 
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+export type AuthResponse = {
+  user: AuthUser;
+  token: string;
+};
+
 export type MercadoPagoDemoResponse = {
   orderId: string;
   orderNumber: string;
   preferenceId: string;
   initPoint: string | null;
   sandboxInitPoint: string | null;
+};
+
+export type MercadoPagoPreferenceResponse = {
+  preferenceId: string;
+  initPoint: string | null;
+  sandboxInitPoint: string | null;
+};
+
+export type MercadoPagoPublicKeyResponse = {
+  publicKey: string;
+};
+
+export type MercadoPagoTransparentResponse = {
+  orderId?: string;
+  orderNumber?: string;
+  paymentId: string | number | null;
+  paymentStatus: "pendente" | "aprovado" | "estornado";
+  statusDetail?: string | null;
+  pixQrCode?: string | null;
+  pixQrCodeBase64?: string | null;
+  ticketUrl?: string | null;
 };
 
 export function getCategories() {
@@ -251,6 +284,86 @@ export function createMercadoPagoDemoPurchase(payload: CreateMercadoPagoDemoPayl
   });
 }
 
+export function createMercadoPagoPreference(payload: {
+  orderId: string;
+  backUrlSuccess?: string;
+  backUrlFailure?: string;
+  backUrlPending?: string;
+}) {
+  return request<MercadoPagoPreferenceResponse>("/api/payments/mercadopago/preference", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getMercadoPagoPublicKey() {
+  return request<MercadoPagoPublicKeyResponse>("/api/payments/mercadopago/public-key");
+}
+
+export function createMercadoPagoTransparentPayment(payload: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  addressStreet: string;
+  addressNumber: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity: string;
+  addressState: string;
+  addressZip: string;
+  shippingCost: number;
+  items: Array<{
+    productId?: string;
+    productName: string;
+    variation?: string;
+    quantity: number;
+    unitPrice: number;
+    unitCost?: number;
+  }>;
+  payment: {
+    token?: string;
+    paymentMethodId: string;
+    installments?: number;
+    issuerId?: string;
+    payer?: {
+      email?: string;
+      identification?: { type?: string; number?: string };
+    };
+  };
+}) {
+  return request<MercadoPagoTransparentResponse>("/api/payments/mercadopago/transparent", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function registerUser(payload: { name: string; email: string; password: string }) {
+  return request<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loginUser(payload: { email: string; password: string }) {
+  return request<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getMe(token: string) {
+  return request<AuthUser>("/api/auth/me", {
+    headers: authHeaders(token),
+  });
+}
+
+export function loginWithGoogle(credential: string) {
+  return request<AuthResponse>("/api/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ credential }),
+  });
+}
+
 export function getShippingPolicies() {
   return request<ApiShippingPolicy[]>("/api/content/shipping");
 }
@@ -282,6 +395,10 @@ function getRuntimeAdminKey(): string | undefined {
 function adminHeaders() {
   const adminKey = getRuntimeAdminKey();
   return adminKey ? { "x-admin-key": adminKey } : undefined;
+}
+
+function authHeaders(token: string) {
+  return { Authorization: `Bearer ${token}` };
 }
 
 export function getAdminOrders() {

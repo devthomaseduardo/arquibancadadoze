@@ -1,10 +1,18 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Truck, ShieldCheck, Headphones, CreditCard, Shirt, Clock3, Percent, Medal } from "lucide-react";
+import { Truck, ShieldCheck, Headphones, CreditCard, Shirt, Clock3, Percent, Medal, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 import CategoryCard from "@/components/CategoryCard";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import TrackingInput from "@/components/TrackingInput";
 import { getCategories, getProducts } from "@/lib/api";
 import { getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreCategory, toStoreProduct } from "@/lib/store-mappers";
 import { criativos } from "@/data/criativos";
@@ -54,139 +62,147 @@ const Index = () => {
           aspectClassName="aspect-[21/7] md:aspect-[16/5]"
           objectPosition="center top"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0">
-          <div className="container mx-auto px-4 pb-8 md:pb-10">
-            <div className="max-w-2xl rounded-2xl border border-white/15 bg-black/45 p-5 backdrop-blur md:p-7">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary">Arquibancada 12</p>
-              <h1 className="mt-2 font-heading text-4xl leading-[0.9] text-neon-glow text-foreground md:text-6xl">
-                Vista a paixão.
-              </h1>
-              <p className="mt-3 max-w-xl text-sm text-muted-foreground md:text-base">
-                Não é só camisa. É identidade de torcida com acabamento premium e presença de estádio.
-              </p>
-              <p className="mt-2 max-w-xl text-xs text-muted-foreground md:text-sm">
-                Selecionamos modelos com alto nível de fidelidade visual, tecido confortável e detalhes que fazem diferença no uso real.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link to="/produtos" className="gradient-primary rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground">
-                  Ver Coleção
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+        <div className="absolute bottom-10 left-0 right-0 z-10 text-center">
+          <h1 className="font-heading text-5xl text-white drop-shadow-2xl md:text-8xl tracking-widest uppercase">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">Arquibancada</span> <span className="text-primary">12</span>
+          </h1>
+          <p className="mt-2 font-body text-sm uppercase tracking-[0.5em] text-white/80 md:text-base">
+            Vista a paixão
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-white/5 bg-black py-12">
+        <div className="container mx-auto grid grid-cols-2 gap-x-8 gap-y-10 px-4 md:grid-cols-4">
+          {[
+            { icon: Truck, label: "Envio Nacional", desc: "Entrega em todo Brasil" },
+            { icon: ShieldCheck, label: "Compra Segura", desc: "Garantia total de entrega" },
+            { icon: Headphones, label: "Suporte Premium", desc: "Atendimento especializado" },
+            { icon: CreditCard, label: "Até 12x", desc: "Parcelamento facilitado" },
+          ].map(({ icon: Icon, label, desc }) => (
+            <div key={label} className="group flex flex-col items-center text-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-white group-hover:scale-110">
+                <Icon className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="block font-heading text-lg tracking-wide text-white">{label}</span>
+                <span className="block text-xs uppercase tracking-wider text-muted-foreground">{desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-black py-20">
+        <div className="container mx-auto px-4">
+          <div className="grid gap-12 md:grid-cols-2 items-center">
+            <div>
+              <h2 className="font-heading text-4xl text-white md:text-6xl mb-6">SOBRE A <span className="text-primary">MARCA</span></h2>
+              <div className="space-y-6 text-lg text-muted-foreground">
+                <p>
+                  A Arquibancada 12 não é apenas uma loja. É um manifesto de quem vive o futebol além das quatro linhas.
+                </p>
+                <p>
+                  Nascemos da necessidade de vestir a paixão com qualidade real. Sem tecidos frágeis, sem estampas que descolam. Apenas o padrão que sua torcida merece.
+                </p>
+                <Link to="/sobre" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors font-medium mt-4">
+                  Conheça nossa história <ChevronRight className="w-4 h-4" />
                 </Link>
-                <Link to="/produtos?cat=retro-tailandesas" className="rounded-lg border border-white/25 bg-black/20 px-5 py-2.5 text-sm text-foreground hover:border-primary">
-                  Explorar Retrô
-                </Link>
+              </div>
+            </div>
+            <div className="relative aspect-square md:aspect-video rounded-lg overflow-hidden border border-white/10 bg-zinc-900">
+              {/* Placeholder for visuals or keeping it abstract/minimal */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                <span className="font-heading text-9xl text-white/5 select-none">A12</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-border bg-secondary/20 py-10">
-        <div className="container mx-auto grid grid-cols-2 gap-x-4 gap-y-6 px-4 md:grid-cols-4">
-          {[
-            { icon: Truck, label: "Envio para todo Brasil" },
-            { icon: ShieldCheck, label: "Qualidade garantida" },
-            { icon: Headphones, label: "Atendimento até 18h" },
-            { icon: CreditCard, label: "Parcelamento facilitado no cartão" },
-          ].map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="glass-card flex items-center gap-3 rounded-xl px-4 py-5 shadow-md shadow-primary/10"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-medium text-foreground">{label}</span>
+      {/* Seção Torcida na Arquibancada removida conforme pedido (era redundante e feia) */}
+
+      <section className="bg-zinc-950 py-20 border-y border-white/5">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+            <div>
+              <h2 className="font-heading text-3xl text-white md:text-5xl">NOSSOS <span className="text-gradient-primary">DIFERENCIAIS</span></h2>
+              <p className="text-muted-foreground mt-2 max-w-xl">Por que quem compra na Arquibancada 12 sempre volta.</p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="py-14">
-        <div className="container mx-auto px-4">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">SOBRE A MARCA</h2>
-          <div className="mt-5 grid gap-4 text-sm leading-relaxed text-muted-foreground md:grid-cols-3">
-            <p className="glass-card rounded-xl p-4">
-              A Arquibancada 12 nasceu para quem vive o futebol além do campo.
-            </p>
-            <p className="glass-card rounded-xl p-4">
-              Aqui não trabalhamos com qualquer peça. Cada modelo é escolhido pelo padrão de acabamento, conforto e fidelidade aos detalhes originais.
-            </p>
-            <p className="glass-card rounded-xl p-4">
-              Nossa proposta é simples: oferecer camisas que representem a paixão do torcedor com qualidade e presença.
-            </p>
           </div>
-        </div>
-      </section>
 
-      <section className="border-y border-primary/30 bg-primary/5 py-6">
-        <div className="container mx-auto flex flex-wrap items-center justify-center gap-3 px-4 text-sm font-semibold uppercase tracking-wide text-primary">
-          {[
-            { icon: Shirt, label: "Torcida na arquibancada" },
-            { icon: Medal, label: "Camisas com identidade" },
-            { icon: Percent, label: "Personalização com nome" },
-            { icon: ShieldCheck, label: "Qualidade premium" },
-            { icon: Truck, label: "Envio para todo o Brasil" },
-          ].map(({ icon: Icon, label }) => (
-            <span
-              key={label}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-sm shadow-primary/10"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-gradient-to-r from-black via-secondary/70 to-black py-12">
-        <div className="container mx-auto px-4 pb-6">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">NOSSOS DIFERENCIAIS</h2>
-        </div>
-        <div className="container mx-auto grid gap-5 px-4 md:grid-cols-4">
-          {[
-            { icon: Shirt, title: "Personalização Profissional", text: "Nome e número aplicados com estampa de alta fixação e excelente durabilidade." },
-            { icon: Clock3, title: "Despacho Ágil", text: "Separação rápida e rastreio por pedido." },
-            { icon: Percent, title: "Transparência", text: "Faixa de preço clara por categoria, sem surpresas no final da compra." },
-            { icon: Medal, title: "Padrão Premium", text: "Modelagens confortáveis, tecido respirável e costura reforçada." },
-          ].map(({ icon: Icon, title, text }) => (
-            <article
-              key={title}
-              className="rounded-2xl border border-primary/30 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-primary/10 p-5 shadow-lg shadow-primary/20 backdrop-blur"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
-                <Icon className="h-5 w-5" />
+          <div className="grid gap-6 md:grid-cols-4">
+            {[
+              { icon: Shirt, title: "Qualidade de Jogo", text: "Tecidos tecnológicos que respiram e duram temporadas inteiras." },
+              { icon: Medal, title: "Acabamento Pro", text: "Costuras reforçadas e detalhes fiéis aos mantos de jogo." },
+              { icon: Clock3, title: "Envio Ágil", text: "Processamento rápido para você vestir seu manto o quanto antes." },
+              { icon: ShieldCheck, title: "Compra Garantida", text: "Processo transparente do pedido até a entrega." },
+            ].map(({ icon: Icon, title, text }) => (
+              <div
+                key={title}
+                className="group rounded-xl border border-white/5 bg-zinc-900/50 p-6 hover:border-primary/30 hover:bg-zinc-900 transition-all duration-300"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary mb-4 group-hover:scale-110 transition-transform">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <h3 className="font-heading text-xl text-white mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
               </div>
-              <h3 className="mt-3 font-body text-base font-semibold text-foreground">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="spray-texture py-16">
-        <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between">
-            <h2 className="font-heading text-3xl text-foreground md:text-4xl">CATEGORIAS</h2>
-            <Link to="/produtos" className="text-sm text-primary hover:underline">
-              Ver todas as categorias
-            </Link>
-          </div>
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {topCategories.map((cat, i) => (
-              <CategoryCard key={cat.id} category={cat} index={i} />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-16">
+      <section className="spray-texture py-24 bg-black">
         <div className="container mx-auto px-4">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">DESTAQUES</h2>
+          <div className="flex items-end justify-between mb-10">
+            <h2 className="font-heading text-4xl text-white md:text-5xl">CATEGORIAS</h2>
+            <Link to="/produtos" className="hidden md:flex items-center gap-2 text-sm text-primary hover:text-white transition-colors">
+              Ver todas <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <Carousel
+            opts={{
+              align: "start",
+              loop: true,
+            }}
+            className="w-full"
+          >
+            <CarouselContent className="-ml-4">
+              {topCategories.map((cat, i) => (
+                <CarouselItem key={cat.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+                  <CategoryCard category={cat} index={i} />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <div className="flex justify-end gap-2 mt-6">
+              <CarouselPrevious className="static translate-y-0" />
+              <CarouselNext className="static translate-y-0" />
+            </div>
+          </Carousel>
+
+          <div className="mt-8 text-center md:hidden">
+            <Link to="/produtos" className="text-sm text-primary hover:underline">
+              Ver todas as categorias
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-zinc-950">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-end justify-between mb-8">
+            <div>
+              <h2 className="font-heading text-3xl text-white md:text-4xl mb-2">DESTAQUES DA SEMANA</h2>
+              <p className="text-sm text-muted-foreground">As peças mais cobiçadas da arquibancada com qualidade de jogo.</p>
+            </div>
+          </div>
           {loadingProducts ? (
             <p className="mt-8 text-sm text-muted-foreground">Carregando produtos...</p>
           ) : (
-            <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-4">
               {featuredProducts.map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i} />
               ))}
@@ -195,55 +211,73 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="py-14">
+      <section className="py-20 bg-zinc-950 border-t border-white/5">
         <div className="container mx-auto px-4">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">SEÇÃO DE CONFIANÇA</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
-              Mais de 2.000 camisas enviadas para todo o Brasil.
-            </div>
-            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
-              Avaliação média de 4,9 baseada em feedbacks reais.
-            </div>
-            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
-              Grande parte dos clientes retorna para novas compras.
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            {["Compra protegida.", "Pagamento seguro.", "Rastreamento após envio.", "Suporte direto via WhatsApp."].map((item) => (
-              <div key={item} className="rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
-                {item}
+          <div className="rounded-2xl bg-gradient-to-br from-zinc-900 via-black to-zinc-900 border border-white/10 p-8 md:p-12 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-primary opactiy-50" />
+            <h2 className="font-heading text-3xl text-white md:text-4xl mb-6">COMPRA SEGURA E GARANTIDA</h2>
+
+            <div className="grid gap-8 md:grid-cols-3 max-w-4xl mx-auto z-10 relative">
+              <div className="flex flex-col items-center">
+                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-500/10 text-green-500 mb-4">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <h3 className="font-bold text-white mb-2">Garantia de Entrega</h3>
+                <p className="text-sm text-muted-foreground">Receba seu produto ou devolvemos seu dinheiro. Transparência total no rastreio.</p>
               </div>
-            ))}
+              <div className="flex flex-col items-center">
+                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-500/10 text-blue-500 mb-4">
+                  <Medal className="h-5 w-5" />
+                </div>
+                <h3 className="font-bold text-white mb-2">Qualidade Premium</h3>
+                <p className="text-sm text-muted-foreground">Satisfação comprovada por milhares de clientes. Tecido e acabamento de alto nível.</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-purple-500/10 text-purple-500 mb-4">
+                  <Headphones className="h-5 w-5" />
+                </div>
+                <h3 className="font-bold text-white mb-2">Suporte Humanizado</h3>
+                <p className="text-sm text-muted-foreground">Dúvidas? Chama a gente no WhatsApp. Atendimento de torcedor para torcedor.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="py-10">
+      <section className="py-20 overflow-hidden bg-black">
         <div className="container mx-auto px-4">
-          <BannerCarousel
-            images={[
-              { src: criativos.bannerCamisas, alt: "Coleção de camisas" },
-              { src: criativos.bannerNome, alt: "Personalize sua camisa" },
-            ]}
-            className="rounded-2xl border border-border"
-          />
-          <div className="mt-5 rounded-xl border border-border bg-card/50 p-5">
-            <h2 className="font-heading text-3xl text-foreground md:text-4xl">Deixe sua marca na arquibancada.</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Personalize sua camisa com nome e número aplicados com padrão profissional de fixação e durabilidade.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Ideal para quem quer exclusividade sem abrir mão da qualidade.
-            </p>
+          <div className="text-center mb-12">
+            <h2 className="font-heading text-4xl text-white md:text-5xl uppercase">Paixão que <span className="text-primary">transcede</span> o campo</h2>
+            <p className="text-muted-foreground mt-2">Da arquibancada para a vida. Vista o orgulho do seu time.</p>
+          </div>
+
+          <div className="relative">
+            {/* Marquee effect simulation or grid of lifestyle photos */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="aspect-[4/5] rounded-[2rem] overflow-hidden border border-white/5 bg-zinc-900 group relative">
+                  {/* Placeholder for lifestyle images */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
+                  <div className="absolute bottom-4 left-4 z-20">
+                    <p className="text-white font-heading text-lg">Cliente A12</p>
+                    <p className="text-white/60 text-xs">@arquibancada12</p>
+                  </div>
+                  <img
+                    src={`https://images.unsplash.com/photo-15${i}1234567890`} // Placeholder URL structure
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-50 group-hover:opacity-80"
+                    alt="Lifestyle"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="py-16">
+      <section className="py-16 bg-zinc-950 border-t border-white/5">
         <div className="container mx-auto px-4">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">O QUE DIZEM NOSSOS CLIENTES</h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <h2 className="font-heading text-3xl text-white md:text-4xl text-center mb-10">O QUE DIZEM NOSSOS CLIENTES</h2>
+          <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
             {testimonials.map((t, i) => (
               <motion.div
                 key={i}
@@ -251,15 +285,20 @@ const Index = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="rounded-lg border border-border bg-card p-6"
+                className="rounded-2xl border border-white/5 bg-zinc-900/50 p-6 backdrop-blur"
               >
-                <div className="flex gap-1 text-primary">
+                <div className="flex gap-1 text-primary mb-3">
                   {Array.from({ length: t.rating }).map((_, j) => (
-                    <span key={j}>★</span>
+                    <span key={j} className="text-lg">★</span>
                   ))}
                 </div>
-                <p className="mt-3 text-sm text-card-foreground">"{t.text}"</p>
-                <p className="mt-3 text-xs font-semibold text-muted-foreground">— {t.name}</p>
+                <p className="text-sm text-gray-300 italic mb-4">"{t.text}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white">
+                    {t.name.charAt(0)}
+                  </div>
+                  <p className="text-xs font-semibold text-white uppercase tracking-wider">{t.name}</p>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -278,7 +317,9 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="border-t border-border bg-secondary/30 py-12 text-center">
+      <TrackingInput />
+
+      <section className="border-t border-white/5 bg-zinc-950 py-12 text-center">
         <div className="container mx-auto px-4">
           <h2 className="font-heading text-2xl text-foreground md:text-3xl">
             SIGA A <span className="text-primary">ARQUIBANCADA 12</span> NAS REDES

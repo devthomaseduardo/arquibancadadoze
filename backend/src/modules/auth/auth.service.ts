@@ -6,7 +6,7 @@ import { env } from "../../config/env.js";
 
 const SALT_ROUNDS = 10;
 
-export type JwtPayload = { userId: string; email: string };
+export type JwtPayload = { userId: string; email: string; role: string };
 
 export async function upsertGoogleUser(googleId: string, email: string, name: string) {
   const normalized = email.trim().toLowerCase();
@@ -15,9 +15,9 @@ export async function upsertGoogleUser(googleId: string, email: string, name: st
     // googleId nao esta persistido no schema atual; mantemos login via e-mail.
     update: { name },
     create: { name, email: normalized, passwordHash: "google" },
-    select: { id: true, email: true, name: true, createdAt: true },
+    select: { id: true, email: true, name: true, createdAt: true, role: true },
   });
-  const token = signToken({ userId: user.id, email: user.email });
+  const token = signToken({ userId: user.id, email: user.email, role: user.role });
   return { user, token };
 }
 
@@ -31,9 +31,9 @@ export async function register(name: string, email: string, password: string) {
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   const user = await prisma.user.create({
     data: { name: name.trim(), email: normalized, passwordHash },
-    select: { id: true, email: true, name: true, createdAt: true },
+    select: { id: true, email: true, name: true, createdAt: true, role: true },
   });
-  const token = signToken({ userId: user.id, email: user.email });
+  const token = signToken({ userId: user.id, email: user.email, role: user.role });
   return { user, token };
 }
 
@@ -45,9 +45,9 @@ export async function login(email: string, password: string) {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) throw notFound("E-mail ou senha incorretos.");
 
-  const token = signToken({ userId: user.id, email: user.email });
+  const token = signToken({ userId: user.id, email: user.email, role: user.role });
   return {
-    user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt },
+    user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt, role: user.role },
     token,
   };
 }
@@ -68,7 +68,7 @@ export function verifyToken(token: string): JwtPayload | null {
 export async function getUserById(id: string) {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, name: true, createdAt: true },
+    select: { id: true, email: true, name: true, createdAt: true, role: true },
   });
   if (!user) throw notFound("Usuário não encontrado");
   return user;

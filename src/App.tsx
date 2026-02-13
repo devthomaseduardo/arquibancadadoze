@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import CartSidebar from "@/components/CartSidebar";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
@@ -14,6 +15,7 @@ import Returns from "./pages/Returns";
 import FAQ from "./pages/FAQ";
 import About from "./pages/About";
 import Admin from "./pages/Admin";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,25 +23,28 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <CartProvider>
-        <Toaster />
-        <Sonner />
-        <CartSidebar />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/produtos" element={<Products />} />
-            <Route path="/produto/:slug" element={<ProductDetail />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/frete" element={<ShippingPolicy />} />
-            <Route path="/trocas" element={<Returns />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/sobre" element={<About />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </CartProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <CartProvider>
+            <Toaster />
+            <Sonner />
+            <CartSidebar />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/produtos" element={<Products />} />
+              <Route path="/produto/:slug" element={<ProductDetail />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/frete" element={<ShippingPolicy />} />
+              <Route path="/trocas" element={<Returns />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/sobre" element={<About />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </CartProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

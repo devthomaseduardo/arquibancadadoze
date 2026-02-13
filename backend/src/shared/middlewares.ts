@@ -4,11 +4,13 @@ import { env } from "../config/env.js";
 import { verifyToken } from "../modules/auth/auth.service.js";
 
 export function adminAuth(req: Request, _res: Response, next: NextFunction) {
+  const payload = getJwtPayload(req);
+  if (payload?.role === "ADMIN") return next();
+
   const key = req.headers["x-admin-key"] ?? req.query.adminKey;
-  if (env.ADMIN_API_KEY && env.ADMIN_API_KEY === key) {
-    return next();
-  }
-  next(unauthorized("Chave de administração inválida"));
+  if (env.ADMIN_API_KEY && env.ADMIN_API_KEY === key) return next();
+
+  next(unauthorized("Acesso administrativo não autorizado"));
 }
 
 // TODO: migrar para validação por JWT com role ADMIN (quando user.role estiver persistido)

@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 const CartSidebar = () => {
   const {
     items, removeItem, updateQuantity, clearCart,
-    totalItems, subtotal, appliedCoupon, applyCoupon,
+    totalItems, subtotal, total, appliedCoupon, applyCoupon,
     removeCoupon, discountAmount, isCartOpen, setCartOpen,
   } = useCart();
   const [couponInput, setCouponInput] = useState("");
@@ -22,8 +22,6 @@ const CartSidebar = () => {
       toast({ title: "Cupom inválido", description: "Verifique o código e tente novamente.", variant: "destructive" });
     }
   };
-
-  const total = subtotal - discountAmount;
 
   return (
     <AnimatePresence>
@@ -81,6 +79,7 @@ const CartSidebar = () => {
                         <div className="mt-2 flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
                             className="rounded border border-border p-1 text-muted-foreground hover:border-primary hover:text-primary"
                           >
                             <Minus className="h-3 w-3" />
@@ -150,6 +149,10 @@ const CartSidebar = () => {
                       <span>- R$ {discountAmount.toFixed(2).replace(".", ",")}</span>
                     </div>
                   )}
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Frete</span>
+                    <span>Calculado no checkout</span>
+                  </div>
                   <div className="flex justify-between border-t border-border pt-2 font-heading text-xl text-foreground">
                     <span>Total</span>
                     <span className="text-primary">R$ {total.toFixed(2).replace(".", ",")}</span>
@@ -159,7 +162,15 @@ const CartSidebar = () => {
                 <Link
                   to="/checkout"
                   onClick={() => setCartOpen(false)}
-                  className="gradient-primary mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-heading text-lg text-primary-foreground neon-glow"
+                  className="gradient-primary mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-heading text-lg text-primary-foreground neon-glow disabled:opacity-50"
+                  aria-disabled={items.length === 0}
+                  onClick={(e) => {
+                    if (items.length === 0) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setCartOpen(false);
+                  }}
                 >
                   FINALIZAR COMPRA
                 </Link>

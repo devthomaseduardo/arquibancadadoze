@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import { errorHandler } from "./shared/middlewares.js";
+import { prisma } from "./shared/prisma.js";
 
 import categoriesRoutes from "./modules/categories/categories.routes.js";
 import productsRoutes from "./modules/products/products.routes.js";
@@ -17,11 +19,35 @@ import influencersRoutes from "./modules/influencers/influencers.routes.js";
 import adminSettingsRoutes from "./modules/admin-settings/admin-settings.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
 import adminEmailRoutes from "./modules/admin-email/admin-email.routes.js";
+import adminSeedRoutes from "./modules/admin-seed/admin-seed.routes.js";
 
 const defaultOrigins = ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"];
 const allowedOrigins = env.FRONTEND_ORIGINS.length > 0 ? env.FRONTEND_ORIGINS : defaultOrigins;
 
 const app = express();
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas, tente novamente em alguns minutos.", code: "RATE_LIMIT" },
+});
+
+const ordersLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas solicitações de pedido.", code: "RATE_LIMIT" },
+});
 
 app.use(
   cors({
@@ -35,11 +61,12 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(apiLimiter);
 
 app.use("/api/categories", categoriesRoutes);
 app.use("/api/products", productsRoutes);
-app.use("/api/orders", ordersRoutes);
-app.use("/api/auth", authRoutes);
+app.use("/api/orders", ordersLimiter, ordersRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/content", contentRoutes);
 
@@ -51,8 +78,16 @@ app.use("/api/admin/influencers", influencersRoutes);
 app.use("/api/admin/settings", adminSettingsRoutes);
 app.use("/api/admin/reports", reportsRoutes);
 app.use("/api/admin/test-email", adminEmailRoutes);
+app.use("/api/admin/seed", adminSeedRoutes);
 
-app.get("/health", (_req, res) => res.json({ status: "ok", service: "torcida-urbana-api" }));
+app.get("/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", service: "torcida-urbana-api", db: "ok" });
+  } catch {
+    res.status(503).json({ status: "degraded", service: "torcida-urbana-api", db: "error" });
+  }
+});
 
 app.use(errorHandler);
 

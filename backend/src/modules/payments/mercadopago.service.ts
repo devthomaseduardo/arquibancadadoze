@@ -53,22 +53,25 @@ export async function createPreference(params: {
 /** Cria pagamento com cartão (token obtido no front com SDK do MP). */
 export async function createPayment(params: {
   transaction_amount: number;
-  token: string;
+  token?: string;
   payment_method_id: string;
-  payer: { email: string };
+  payer: { email: string; identification?: { type?: string; number?: string } };
   description?: string;
   external_reference?: string;
   installments?: number;
+  issuer_id?: string;
 }) {
-  const body = {
+  const body: Record<string, unknown> = {
     transaction_amount: params.transaction_amount,
-    token: params.token,
     payment_method_id: params.payment_method_id,
     payer: { email: params.payer.email },
     description: params.description,
     external_reference: params.external_reference,
     installments: params.installments || 1,
   };
+  if (params.token) body.token = params.token;
+  if (params.issuer_id) body.issuer_id = params.issuer_id;
+  if (params.payer.identification) body.payer = { email: params.payer.email, identification: params.payer.identification };
   const res = await fetch(`${MP_BASE}/v1/payments`, {
     method: "POST",
     headers: getHeaders(),
@@ -80,6 +83,15 @@ export async function createPayment(params: {
     error?: { message?: string };
     id?: number | string;
     status_detail?: string;
+    payment_method_id?: string;
+    payment_type_id?: string;
+    point_of_interaction?: {
+      transaction_data?: {
+        qr_code?: string;
+        qr_code_base64?: string;
+        ticket_url?: string;
+      };
+    };
   };
   if (typeof data.status === "number" && data.status >= 400) {
     throw new Error(data.message || data.error?.message || "Erro ao processar pagamento.");
@@ -88,7 +100,40 @@ export async function createPayment(params: {
     id: data.id,
     status: String(data.status ?? ""),
     status_detail: data.status_detail,
+    payment_method_id: data.payment_method_id,
+    payment_type_id: data.payment_type_id,
+    qr_code: data.point_of_interaction?.transaction_data?.qr_code,
+    qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
+    ticket_url: data.point_of_interaction?.transaction_data?.ticket_url,
   };
+}
+
+export async function getPaymentById(id: string) {
+  const res = await fetch(`${MP_BASE}/v1/payments/${id}`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+  const data = (await res.json()) as {
+    status?: string;
+    status_detail?: string;
+    id?: string | number;
+    external_reference?: string;
+    transaction_amount?: number;
+    payment_method_id?: string;
+    payer?: { email?: string };
+  };
+  if (res.status >= 400) {
+    throw new Error("Erro ao consultar pagamento no Mercado Pago.");
+  }
+  return data;
+}
+
+export function mapMpStatus(status?: string) {
+  if (!status) return "pendente";
+  if (status === "approved") return "aprovado";
+  if (status === "refunded" || status === "charged_back") return "estornado";
+  if (status === "cancelled" || status === "rejected") return "estornado";
+  return "pendente";
 }
 
 /** Retorna a chave pública para usar no frontend (tokenização de cartão). */
