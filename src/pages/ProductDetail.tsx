@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { getProductBySlug } from "@/lib/api";
 import { getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreProductDetail } from "@/lib/store-mappers";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/contexts/CartContext";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -15,6 +16,7 @@ const ProductDetail = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { addItem } = useCart();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["product", slug],
@@ -45,22 +47,44 @@ const ProductDetail = () => {
     setActiveImageIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
   };
 
+  const handleAddToCart = () => {
+    if (!product) return;
+    if (!selectedSize) {
+      toast({ title: "Selecione um tamanho", description: "Escolha o tamanho antes de adicionar.", variant: "destructive" });
+      return;
+    }
+    addItem({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      image: product.image,
+      size: selectedSize,
+      customName: customName.trim().toUpperCase() || undefined,
+      price: product.priceMin,
+      quantity: 1,
+      categorySlug: product.categorySlug,
+    });
+    toast({ title: "Adicionado ao carrinho!", description: `${product.name} (${selectedSize})` });
+  };
+
   const handleBuyNow = () => {
     if (!product) return;
     if (!selectedSize) {
       toast({ title: "Selecione um tamanho", description: "Escolha o tamanho antes de continuar.", variant: "destructive" });
       return;
     }
-
-    const params = new URLSearchParams({
+    addItem({
+      productId: product.id,
       slug: product.slug,
+      name: product.name,
+      image: product.image,
       size: selectedSize,
-      qty: "1",
+      customName: customName.trim().toUpperCase() || undefined,
+      price: product.priceMin,
+      quantity: 1,
+      categorySlug: product.categorySlug,
     });
-    if (customName.trim()) {
-      params.set("customName", customName.trim().toUpperCase());
-    }
-    navigate(`/checkout?${params.toString()}`);
+    navigate("/checkout");
   };
 
   if (isLoading) {
@@ -209,16 +233,23 @@ const ProductDetail = () => {
                 <ShoppingCart className="h-5 w-5" />
                 COMPRAR AGORA
               </button>
-              <a
-                href={`https://wa.me/5511999999999?text=Olá! Tenho interesse na ${encodeURIComponent(product.name)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-lg border border-border px-8 py-3 font-heading text-lg text-foreground transition-colors hover:border-primary hover:text-primary"
+              <button
+                onClick={handleAddToCart}
+                className="flex items-center justify-center gap-2 rounded-lg border border-primary px-8 py-3 font-heading text-lg text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
               >
-                <MessageCircle className="h-5 w-5" />
-                WHATSAPP
-              </a>
+                <Plus className="h-5 w-5" />
+                ADICIONAR AO CARRINHO
+              </button>
             </div>
+            <a
+              href={`https://wa.me/5511999999999?text=Olá! Tenho interesse na ${encodeURIComponent(product.name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-border px-8 py-3 font-heading text-lg text-foreground transition-colors hover:border-primary hover:text-primary"
+            >
+              <MessageCircle className="h-5 w-5" />
+              WHATSAPP
+            </a>
 
             <div className="mt-8 rounded-lg border border-primary/30 bg-gradient-to-r from-primary/20 via-background to-secondary/30 p-4 text-sm">
               <p className="font-semibold text-primary">MODO TORCIDA ATIVADO</p>
