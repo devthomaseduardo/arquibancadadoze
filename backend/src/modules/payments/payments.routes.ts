@@ -2,8 +2,20 @@ import { Router } from "express";
 import * as mpService from "./mercadopago.service.js";
 import { prisma } from "../../shared/prisma.js";
 import { badRequest } from "../../shared/errors.js";
+import { adminAuth } from "../../shared/middlewares.js";
+import { env } from "../../config/env.js";
+import * as ordersService from "../orders/orders.service.js";
 
 const router = Router();
+
+function getBaseUrlFromBackUrl(backUrl?: unknown) {
+  if (typeof backUrl !== "string" || !backUrl) return "http://localhost:8080";
+  try {
+    return new URL(backUrl).origin;
+  } catch {
+    return "http://localhost:8080";
+  }
+}
 
 /** Retorna a Public Key do MP para o frontend (tokenização de cartão). */
 router.get("/mercadopago/public-key", (_req, res) => {
@@ -23,7 +35,7 @@ router.post("/mercadopago/preference", async (req, res, next) => {
     });
     if (!order) throw badRequest("Pedido não encontrado.");
 
-    const baseUrl = (backUrlSuccess || "").replace(/\/[^/]*$/, "") || "http://localhost:8080";
+    const baseUrl = getBaseUrlFromBackUrl(backUrlSuccess);
     const items = order.items.map((i) => ({
       title: i.productName + (i.variation ? ` (${i.variation})` : ""),
       quantity: i.quantity,
@@ -45,7 +57,6 @@ router.post("/mercadopago/preference", async (req, res, next) => {
         failure: backUrlFailure || `${baseUrl}/loja.html?payment=failure`,
         pending: backUrlPending || `${baseUrl}/loja.html?payment=pending`,
       },
-      auto_return: "approved",
     });
 
     await prisma.order.update({
@@ -54,6 +65,130 @@ router.post("/mercadopago/preference", async (req, res, next) => {
     });
 
     res.json({
+      preferenceId: result.id,
+      initPoint: result.init_point,
+      sandboxInitPoint: result.sandbox_init_point,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Cria uma preferência Mercado Pago (sem pedido) para facilitar testes da integração.
+ * Protegido por `X-Admin-Key` e disponível apenas fora de produção.
+ */
+router.post("/mercadopago/demo-preference", adminAuth, async (req, res, next) => {
+  try {
+    if (env.NODE_ENV === "production") {
+      throw badRequest("Endpoint demo indisponível em produção.");
+    }
+
+    const { itemTitle, unitPrice, quantity, customerEmail, customerName, backUrlSuccess, backUrlFailure, backUrlPending } =
+      req.body ?? {};
+
+    const baseUrl = getBaseUrlFromBackUrl(backUrlSuccess);
+    const result = await mpService.createPreference({
+      items: [
+        {
+          title: itemTitle || "Produto Demo (Teste)",
+          quantity: Number.isFinite(Number(quantity)) ? Number(quantity) : 1,
+          unit_price: Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 149.9,
+        },
+      ],
+      payer: {
+        email: customerEmail || "cliente.demo@exemplo.com",
+        name: customerName || "Cliente Demo",
+      },
+      external_reference: `demo-${Date.now()}`,
+      back_urls: {
+        success: backUrlSuccess || `${baseUrl}/loja.html?payment=success`,
+        failure: backUrlFailure || `${baseUrl}/loja.html?payment=failure`,
+        pending: backUrlPending || `${baseUrl}/loja.html?payment=pending`,
+      },
+    });
+
+    res.status(201).json({
+      preferenceId: result.id,
+      initPoint: result.init_point,
+      sandboxInitPoint: result.sandbox_init_point,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Cria uma compra demo (pedido + preferência Mercado Pago) para facilitar testes locais.
+ * Protegido por `X-Admin-Key` e disponível apenas fora de produção.
+ */
+router.post("/mercadopago/demo", adminAuth, async (req, res, next) => {
+  try {
+    if (env.NODE_ENV === "production") {
+      throw badRequest("Endpoint demo indisponível em produção.");
+    }
+
+    const {
+      customerEmail,
+      customerName,
+      itemTitle,
+      unitPrice,
+      quantity,
+      shippingCost,
+      backUrlSuccess,
+      backUrlFailure,
+      backUrlPending,
+    } = req.body ?? {};
+
+    const order = await ordersService.createOrder({
+      customerName: customerName || "Cliente Demo",
+      customerEmail: customerEmail || "cliente.demo@exemplo.com",
+      customerPhone: "11999999999",
+      addressStreet: "Rua Demo",
+      addressNumber: "123",
+      addressComplement: "Apto 1",
+      addressNeighborhood: "Centro",
+      addressCity: "São Paulo",
+      addressState: "SP",
+      addressZip: "01001000",
+      paymentMethod: "mercadopago",
+      items: [
+        {
+          productName: itemTitle || "Camisa Demo (Teste)",
+          variation: "M",
+          quantity: Number.isFinite(Number(quantity)) ? Number(quantity) : 1,
+          unitPrice: Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 149.9,
+        },
+      ],
+      shippingCost: Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 35,
+      notes: "Pedido DEMO criado para teste do Mercado Pago",
+      source: "demo",
+    });
+
+    const baseUrl = getBaseUrlFromBackUrl(backUrlSuccess);
+    const result = await mpService.createPreference({
+      items: order.items.map((i) => ({
+        title: i.productName + (i.variation ? ` (${i.variation})` : ""),
+        quantity: i.quantity,
+        unit_price: i.unitPrice,
+      })),
+      payer: { email: order.customerEmail, name: order.customerName },
+      external_reference: order.id,
+      back_urls: {
+        success: backUrlSuccess || `${baseUrl}/loja.html?payment=success`,
+        failure: backUrlFailure || `${baseUrl}/loja.html?payment=failure`,
+        pending: backUrlPending || `${baseUrl}/loja.html?payment=pending`,
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { mercadopagoPreferenceId: String(result.id) },
+    });
+
+    res.status(201).json({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
       preferenceId: result.id,
       initPoint: result.init_point,
       sandboxInitPoint: result.sandbox_init_point,

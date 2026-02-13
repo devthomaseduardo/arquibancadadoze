@@ -19,7 +19,7 @@ export async function createPreference(params: {
   back_urls?: { success: string; failure: string; pending: string };
   auto_return?: "approved" | "all";
 }) {
-  const body = {
+  const body: Record<string, unknown> = {
     items: params.items.map((i) => ({
       title: i.title,
       quantity: i.quantity,
@@ -32,8 +32,8 @@ export async function createPreference(params: {
     },
     external_reference: params.external_reference,
     back_urls: params.back_urls,
-    auto_return: params.auto_return || "approved",
   };
+  if (params.auto_return) body.auto_return = params.auto_return;
   const res = await fetch(`${MP_BASE}/checkout/preferences`, {
     method: "POST",
     headers: getHeaders(),

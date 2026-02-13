@@ -48,6 +48,26 @@ npm run dev
 
 API em `http://localhost:3000`.
 
+## Postgres local com Docker Compose
+
+```bash
+cd backend
+npm run db:up
+```
+
+Depois ajuste `DATABASE_URL` no `.env` para:
+
+```bash
+DATABASE_URL="postgresql://torcida:torcida@localhost:5432/arquibancada?schema=public"
+```
+
+Para parar/remover:
+
+```bash
+cd backend
+npm run db:down
+```
+
 ## Endpoints principais
 
 ### Público (loja)
@@ -69,6 +89,8 @@ API em `http://localhost:3000`.
 | GET | `/api/payments/mercadopago/public-key` | Chave pública MP (frontend) |
 | POST | `/api/payments/mercadopago/preference` | Cria preferência MP (orderId, backUrls) – PIX/boleto |
 | POST | `/api/payments/mercadopago/card` | Pagamento com cartão (orderId, token, paymentMethodId) |
+| POST | `/api/payments/mercadopago/demo-preference` | Cria preferência MP sem pedido (demo, só dev; requer `X-Admin-Key`) |
+| POST | `/api/payments/mercadopago/demo` | Cria pedido + preferência MP (demo, só dev; requer `X-Admin-Key`) |
 
 ### Admin (header `X-Admin-Key: <ADMIN_API_KEY>` ou query `?adminKey=...`)
 
@@ -96,6 +118,29 @@ API em `http://localhost:3000`.
 - `FRONTEND_ORIGINS` – origens CORS separadas por vírgula (ex: `https://meu-frontend.vercel.app`)
 
 **Mercado Pago:** No [painel do desenvolvedor](https://www.mercadopago.com.br/developers) em Sua integração > Credenciais, use o **Access Token** (produção ou teste) e a **Chave pública**. O Access Token costuma começar com `APP_USR-` ou `TEST-`.
+Para testes locais, prefira credenciais **TEST-** para evitar criar preferências em produção.
+
+## Compra demo (Mercado Pago)
+
+Endpoint para criar rapidamente um pedido e uma preferência de pagamento:
+
+```bash
+curl -X POST http://localhost:3000/api/payments/mercadopago/demo-preference \
+  -H 'Content-Type: application/json' \
+  -H 'X-Admin-Key: <ADMIN_API_KEY>' \
+  -d '{"unitPrice": 149.9, "quantity": 1}'
+```
+
+Ou (se o banco estiver rodando) criar um pedido + preferência:
+
+```bash
+curl -X POST http://localhost:3000/api/payments/mercadopago/demo \
+  -H 'Content-Type: application/json' \
+  -H 'X-Admin-Key: <ADMIN_API_KEY>' \
+  -d '{"unitPrice": 149.9, "quantity": 1}'
+```
+
+Retorna `orderId`, `preferenceId` e `sandboxInitPoint`/`initPoint`. Disponível apenas quando `NODE_ENV != production`.
 
 ## Seed
 

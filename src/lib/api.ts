@@ -196,6 +196,26 @@ export type CreateOrderPayload = {
   source?: string;
 };
 
+export type CreateMercadoPagoDemoPayload = {
+  customerName?: string;
+  customerEmail?: string;
+  itemTitle?: string;
+  unitPrice?: number;
+  quantity?: number;
+  shippingCost?: number;
+  backUrlSuccess?: string;
+  backUrlFailure?: string;
+  backUrlPending?: string;
+};
+
+export type MercadoPagoDemoResponse = {
+  orderId: string;
+  orderNumber: string;
+  preferenceId: string;
+  initPoint: string | null;
+  sandboxInitPoint: string | null;
+};
+
 export function getCategories() {
   return request<ApiCategory[]>("/api/categories");
 }
@@ -218,6 +238,19 @@ export function createOrder(payload: CreateOrderPayload) {
   });
 }
 
+export function createMercadoPagoDemoPurchase(payload: CreateMercadoPagoDemoPayload) {
+  const headers = adminHeaders();
+  if (!headers) {
+    throw new Error("Chave admin ausente. Defina VITE_ADMIN_API_KEY ou localStorage.adminKey.");
+  }
+
+  return request<MercadoPagoDemoResponse>("/api/payments/mercadopago/demo", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getShippingPolicies() {
   return request<ApiShippingPolicy[]>("/api/content/shipping");
 }
@@ -236,8 +269,18 @@ export function getConfig(keys: string[]) {
   return request<ApiConfigMap>(`/api/content/config?${params.toString()}`);
 }
 
+function getRuntimeAdminKey(): string | undefined {
+  // Prefer localStorage so admin possa digitar a chave sem rebuild
+  if (typeof localStorage !== "undefined") {
+    const stored = localStorage.getItem("adminKey")?.trim();
+    if (stored) return stored;
+  }
+  const envKey = (import.meta.env.VITE_ADMIN_API_KEY as string | undefined)?.trim();
+  return envKey || undefined;
+}
+
 function adminHeaders() {
-  const adminKey = (import.meta.env.VITE_ADMIN_API_KEY as string | undefined)?.trim();
+  const adminKey = getRuntimeAdminKey();
   return adminKey ? { "x-admin-key": adminKey } : undefined;
 }
 
