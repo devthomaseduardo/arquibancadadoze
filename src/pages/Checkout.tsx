@@ -1,12 +1,11 @@
-import { FormEvent, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BadgeCheck, CreditCard, MapPin, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { BadgeCheck, CreditCard, MapPin, PackageCheck, ShieldCheck, Tag, Truck } from "lucide-react";
 import Layout from "@/components/Layout";
-import { createOrder, getProductBySlug, getShippingQuote } from "@/lib/api";
+import { createOrder, getShippingQuote } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { criativos } from "@/data/criativos";
-import BannerCarousel from "@/components/BannerCarousel";
+import { useCart } from "@/contexts/CartContext";
 
 type CheckoutForm = {
   customerName: string;
@@ -37,46 +36,27 @@ const defaultForm: CheckoutForm = {
 };
 
 const Checkout = () => {
-  const [searchParams] = useSearchParams();
-  const slug = searchParams.get("slug") || "";
-  const size = searchParams.get("size") || "";
-  const customName = (searchParams.get("customName") || "").trim().slice(0, 15).toUpperCase();
-  const qty = Math.max(Number(searchParams.get("qty") || "1"), 1);
   const { toast } = useToast();
-
+  const { items, subtotal, appliedCoupon, applyCoupon, removeCoupon, discountAmount, clearCart } = useCart();
   const [form, setForm] = useState<CheckoutForm>(defaultForm);
   const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState("");
 
-  const { data: product, isLoading, isError } = useQuery({
-    queryKey: ["checkout-product", slug],
-    queryFn: () => getProductBySlug(slug),
-    enabled: Boolean(slug),
-  });
-
-  const subtotal = (product?.priceMin || 0) * qty;
+  const cartSubtotal = subtotal;
   const stateForQuote = form.addressState.trim().toUpperCase();
   const { data: quote } = useQuery({
-    queryKey: ["shipping-quote", stateForQuote, subtotal],
-    queryFn: () => getShippingQuote(stateForQuote, subtotal),
-    enabled: stateForQuote.length === 2 && subtotal > 0,
+    queryKey: ["shipping-quote", stateForQuote, cartSubtotal],
+    queryFn: () => getShippingQuote(stateForQuote, cartSubtotal),
+    enabled: stateForQuote.length === 2 && cartSubtotal > 0,
   });
   const shippingCost = quote?.finalShippingCost ?? 35;
-  const total = subtotal + shippingCost;
-
-  const hasSizeInProduct = useMemo(() => {
-    if (!product || !size) return false;
-    try {
-      const sizes = JSON.parse(product.sizes) as string[];
-      return sizes.includes(size);
-    } catch {
-      return false;
-    }
-  }, [product, size]);
+  const total = cartSubtotal - discountAmount + shippingCost;
 
   const mutation = useMutation({
     mutationFn: createOrder,
     onSuccess: (order) => {
       setCreatedOrderNumber(order.orderNumber);
+      clearCart();
       toast({ title: "Pedido criado com sucesso", description: `Pedido #${order.orderNumber} recebido.` });
     },
     onError: (err) => {
@@ -88,11 +68,19 @@ const Checkout = () => {
     },
   });
 
+  const handleApplyCoupon = () => {
+    if (applyCoupon(couponInput)) {
+      toast({ title: "Cupom aplicado!", description: `Desconto ativado.` });
+      setCouponInput("");
+    } else {
+      toast({ title: "Cupom inválido", description: "Verifique o código.", variant: "destructive" });
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-
-    if (!product || !hasSizeInProduct) {
-      toast({ title: "Produto inválido", description: "Selecione o produto novamente.", variant: "destructive" });
+    if (items.length === 0) {
+      toast({ title: "Carrinho vazio", description: "Adicione produtos antes de finalizar.", variant: "destructive" });
       return;
     }
 
@@ -110,32 +98,22 @@ const Checkout = () => {
       paymentMethod: form.paymentMethod,
       shippingCost,
       source: "frontend-checkout",
-      items: [
-        {
-          productId: product.id,
-          productName: product.name,
-          variation: customName ? `${size} | Nome: ${customName}` : size,
-          quantity: qty,
-          unitPrice: product.priceMin,
-        },
-      ],
+      items: items.map((item) => ({
+        productId: item.productId,
+        productName: item.name,
+        variation: item.customName ? `${item.size} | Nome: ${item.customName}` : item.size,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      })),
     });
   };
 
-  if (isLoading) {
+  if (items.length === 0 && !createdOrderNumber) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Carregando checkout...</div>
-      </Layout>
-    );
-  }
-
-  if (isError || !product || !hasSizeInProduct) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-10">
-          <p className="text-destructive">Não foi possível iniciar o checkout.</p>
-          <Link to="/produtos" className="mt-4 inline-block text-primary hover:underline">Voltar para produtos</Link>
+        <div className="container mx-auto px-4 py-20 text-center">
+          <p className="text-muted-foreground">Seu carrinho está vazio.</p>
+          <Link to="/produtos" className="mt-4 inline-block text-primary hover:underline">Ver produtos</Link>
         </div>
       </Layout>
     );
@@ -145,27 +123,16 @@ const Checkout = () => {
     <Layout>
       <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-3">
         <section className="md:col-span-2">
-          <BannerCarousel
-            images={[
-              { src: criativos.bannerNome, alt: "Personalize sua camisa" },
-              { src: criativos.bannerCamisas, alt: "Coleção de camisas" },
-            ]}
-            className="mb-6 rounded-2xl border border-border"
-            showArrows={false}
-          />
           <h1 className="font-heading text-3xl text-foreground">CHECKOUT</h1>
           <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              Compra protegida
+              <ShieldCheck className="h-4 w-4 text-primary" /> Compra protegida
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <PackageCheck className="h-4 w-4 text-primary" />
-              Pedido rastreável
+              <PackageCheck className="h-4 w-4 text-primary" /> Pedido rastreável
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <CreditCard className="h-4 w-4 text-primary" />
-              Pix, Cartão e Boleto
+              <CreditCard className="h-4 w-4 text-primary" /> Pix, Cartão e Boleto
             </div>
           </div>
 
@@ -205,34 +172,72 @@ const Checkout = () => {
         </section>
 
         <aside className="rounded-lg border border-border bg-card p-5">
-          <h2 className="font-heading text-xl text-foreground">Resumo</h2>
-          <div className="mt-4 space-y-2 text-sm">
-            <p className="text-foreground">{product.name}</p>
-            <p className="text-muted-foreground">Tamanho: {size}</p>
-            {customName && <p className="text-muted-foreground">Personalização: {customName}</p>}
-            <p className="text-muted-foreground">Qtd: {qty}</p>
+          <h2 className="font-heading text-xl text-foreground">Resumo do Pedido</h2>
+          <div className="mt-4 space-y-3">
+            {items.map((item) => (
+              <div key={`${item.productId}-${item.size}`} className="flex gap-3 border-b border-border pb-3">
+                <img src={item.image} alt={item.name} className="h-16 w-12 rounded-md object-cover" />
+                <div className="flex-1 text-sm">
+                  <p className="font-medium text-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">Tam: {item.size} · Qtd: {item.quantity}</p>
+                  {item.customName && <p className="text-xs text-primary">Nome: {item.customName}</p>}
+                  <p className="text-sm font-semibold text-primary">R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}</p>
+                </div>
+              </div>
+            ))}
+
+            {/* Coupon area */}
+            <div className="border-b border-border pb-3">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">{appliedCoupon.code} — {appliedCoupon.label}</span>
+                  </div>
+                  <button onClick={removeCoupon} className="text-xs text-muted-foreground hover:text-destructive">Remover</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    placeholder="Cupom de desconto"
+                    className="flex-1 rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
+                  />
+                  <button type="button" onClick={handleApplyCoupon} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+                    Aplicar
+                  </button>
+                </div>
+              )}
+            </div>
+
             {quote && (
-              <>
-                <p className="flex items-center gap-2 text-muted-foreground">
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-primary" />
                   Região: {quote.region} ({quote.state})
                 </p>
-                <p className="text-muted-foreground">
-                  Entrega estimada: {quote.estimateDays.min} a {quote.estimateDays.max} dias úteis
-                </p>
-                <p className="text-muted-foreground">
-                  {quote.isFreeShipping ? "Frete grátis aplicado." : `Frete base da região: R$ ${quote.baseShipping.toFixed(2).replace(".", ",")}`}
-                </p>
-              </>
+                <p>Entrega estimada: {quote.estimateDays.min} a {quote.estimateDays.max} dias úteis</p>
+              </div>
             )}
-            <div className="mt-3 border-t border-border pt-3">
-              <div className="flex justify-between"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace(".", ",")}</span></div>
-              <div className="mt-1 flex justify-between"><span>Frete</span><span>R$ {shippingCost.toFixed(2).replace(".", ",")}</span></div>
-              <div className="mt-2 flex justify-between font-semibold text-primary"><span>Total</span><span>R$ {total.toFixed(2).replace(".", ",")}</span></div>
+
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>R$ {cartSubtotal.toFixed(2).replace(".", ",")}</span></div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-primary"><span>Desconto ({appliedCoupon.discount}%)</span><span>- R$ {discountAmount.toFixed(2).replace(".", ",")}</span></div>
+              )}
+              <div className="flex justify-between text-muted-foreground"><span>Frete</span><span>R$ {shippingCost.toFixed(2).replace(".", ",")}</span></div>
+              <div className="flex justify-between border-t border-border pt-2 font-heading text-xl text-foreground">
+                <span>Total</span>
+                <span className="text-primary">R$ {total.toFixed(2).replace(".", ",")}</span>
+              </div>
             </div>
-            <div className="mt-4 space-y-2 rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-foreground">
-              <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Envio nacional com atualização de status.</p>
-              <p className="flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-primary" /> Dados salvos no sistema após confirmação.</p>
+
+            <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-foreground">
+              <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Envio nacional com rastreio.</p>
+              <p className="flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-primary" /> Dados salvos após confirmação.</p>
             </div>
           </div>
         </aside>

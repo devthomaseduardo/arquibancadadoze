@@ -288,3 +288,24 @@ export function getSalesReport(params?: { dateFrom?: string; dateTo?: string; gr
   const suffix = search.toString() ? `?${search.toString()}` : "";
   return request<SalesReportResponse>(`/api/admin/reports/sales${suffix}`, { headers: adminHeaders() });
 }
+
+export type MetricsResponse = {
+  totalOrders: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  ticketMedio: number;
+  byPaymentMethod: Record<string, { count: number; total: number }>;
+  byRegion: Record<string, { count: number; total: number }>;
+  byOrderStatus: Record<string, number>;
+  byPaymentStatus: Record<string, number>;
+  period: { from: string; to: string } | null;
+};
+
+export function getMetrics(dateFrom?: string, dateTo?: string) {
+  const search = new URLSearchParams();
+  if (dateFrom) search.set("dateFrom", dateFrom);
+  if (dateTo) search.set("dateTo", dateTo);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<MetricsResponse>(`/api/metrics${suffix}`, { headers: adminHeaders() });
+}

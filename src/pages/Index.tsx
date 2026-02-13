@@ -9,6 +9,7 @@ import { getCategories, getProducts } from "@/lib/api";
 import { getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreCategory, toStoreProduct } from "@/lib/store-mappers";
 import { criativos } from "@/data/criativos";
 import BannerCarousel from "@/components/BannerCarousel";
+import PromoBanner from "@/components/PromoBanner";
 
 const testimonials = [
   { name: "Lucas M.", text: "Qualidade incrível! Não dá pra diferenciar da original. Entrega rápida!", rating: 5 },
@@ -39,6 +40,7 @@ const Index = () => {
 
   return (
     <Layout>
+      <PromoBanner />
       <section className="relative bg-black py-2">
         <BannerCarousel
           images={[

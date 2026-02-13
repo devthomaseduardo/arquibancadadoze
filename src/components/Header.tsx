@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ShoppingCart, Menu, X, Shield, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { criativos } from "@/data/criativos";
+import { useCart } from "@/contexts/CartContext";
 
 const navLinks = [
   { to: "/", label: "Início" },
@@ -16,15 +17,15 @@ const navLinks = [
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { totalItems, setCartOpen } = useCart();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
-          <img src={criativos.logoSemFundo} alt="Arquibancada 12" className="h-12 w-auto" />
+          <img src={criativos.logoSemFundo} alt="Pé na Bola" className="h-12 w-auto" />
         </Link>
 
-        {/* Desktop Nav */}
         <nav className="hidden items-center gap-6 md:flex">
           {navLinks.map((link) => (
             <Link
@@ -50,11 +51,16 @@ const Header = () => {
             <Shield className="h-3.5 w-3.5" />
             Admin
           </Link>
-          <button className="relative rounded-lg bg-secondary p-2 transition-colors hover:bg-primary hover:text-primary-foreground">
+          <button
+            onClick={() => setCartOpen(true)}
+            className="relative rounded-lg bg-secondary p-2 transition-colors hover:bg-primary hover:text-primary-foreground"
+          >
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-              0
-            </span>
+            {totalItems > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                {totalItems > 99 ? "99+" : totalItems}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -65,7 +71,6 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile Nav */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.nav
