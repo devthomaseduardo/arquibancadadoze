@@ -467,5 +467,5 @@ export function getMetrics(dateFrom?: string, dateTo?: string) {
   if (dateFrom) search.set("dateFrom", dateFrom);
   if (dateTo) search.set("dateTo", dateTo);
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  return request<MetricsResponse>(`/api/metrics${suffix}`, { headers: adminHeaders() });
+  return request<MetricsResponse>(`/api/admin/metrics${suffix}`, { headers: adminHeaders() });
 }

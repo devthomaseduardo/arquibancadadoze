@@ -1,255 +1,82 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { BadgeCheck, CreditCard, ExternalLink, MapPin, PackageCheck, ShieldCheck, Tag, Truck } from "lucide-react";
-import Layout from "@/components/Layout";
-import {
-  createMercadoPagoDemoPurchase,
-  createMercadoPagoTransparentPayment,
-  getMercadoPagoPublicKey,
-  getShippingQuote,
-} from "@/lib/api";
-import { useToast } from "@/hooks/use-toast";
-import { useCart } from "@/contexts/CartContext";
-
-type CheckoutForm = {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  addressStreet: string;
-  addressNumber: string;
-  addressComplement: string;
-  addressNeighborhood: string;
-  addressCity: string;
-  addressState: string;
-  addressZip: string;
-};
-
-const defaultForm: CheckoutForm = {
-  customerName: "",
-  customerEmail: "",
-  customerPhone: "",
-  addressStreet: "",
-  addressNumber: "",
-  addressComplement: "",
-  addressNeighborhood: "",
-  addressCity: "",
-  addressState: "",
-  addressZip: "",
-};
+import { ShieldCheck, Truck, ArrowLeft, CreditCard, Lock } from "lucide-react";
+import Layout from "../components/Layout";
+import { getShippingQuote, createMercadoPagoTransparentPayment } from "../lib/api";
+import { useCart } from "../contexts/CartContext";
+import { formatCurrency, cn } from "../lib/utils";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 const Checkout = () => {
-  const { toast } = useToast();
-  const { items, subtotal, appliedCoupon, applyCoupon, removeCoupon, discountAmount, clearCart } = useCart();
-  const [form, setForm] = useState<CheckoutForm>(defaultForm);
-  const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
-  const [couponInput, setCouponInput] = useState("");
-  const [demoCheckoutUrl, setDemoCheckoutUrl] = useState<string | null>(null);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [transparentResult, setTransparentResult] = useState<{
-    paymentStatus: string;
-    pixQrCode?: string | null;
-    pixQrCodeBase64?: string | null;
-    ticketUrl?: string | null;
-  } | null>(null);
-  const brickInitialized = useRef(false);
-  const lastBrickAmount = useRef<number | null>(null);
-
-  const cartSubtotal = subtotal;
-  const stateForQuote = form.addressState.trim().toUpperCase();
-  const { data: quote } = useQuery({
-    queryKey: ["shipping-quote", stateForQuote, cartSubtotal],
-    queryFn: () => getShippingQuote(stateForQuote, cartSubtotal),
-    enabled: stateForQuote.length === 2 && cartSubtotal > 0,
+  const { items, subtotal, total, appliedCoupon, applyCoupon, discountAmount, clearCart } = useCart();
+  const [form, setForm] = useState({
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
+    addressStreet: "",
+    addressNumber: "",
+    addressCity: "",
+    addressState: "",
+    addressZip: "",
   });
-  const shippingCost = quote?.finalShippingCost ?? 35;
-  const total = cartSubtotal - discountAmount + shippingCost;
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
-  useEffect(() => {
-    getMercadoPagoPublicKey()
-      .then((data) => setPublicKey(data.publicKey || null))
-      .catch(() => setPublicKey(null));
-  }, []);
-
-  const handleApplyCoupon = () => {
-    if (applyCoupon(couponInput)) {
-      toast({ title: "Cupom aplicado!", description: "Desconto ativado." });
-      setCouponInput("");
-      return;
-    }
-    toast({ title: "Cupom inválido", description: "Verifique o código.", variant: "destructive" });
-  };
-
-  const demoMutation = useMutation({
-    mutationFn: createMercadoPagoDemoPurchase,
-    onSuccess: (result) => {
-      const paymentUrl = result.sandboxInitPoint || result.initPoint || null;
-      setCreatedOrderNumber(result.orderNumber);
-      setDemoCheckoutUrl(paymentUrl);
-      clearCart();
-      toast({
-        title: "Compra demo criada",
-        description: `Pedido #${result.orderNumber} criado. Abrindo checkout do Mercado Pago.`,
-      });
-      if (paymentUrl) {
-        window.open(paymentUrl, "_blank", "noopener,noreferrer");
-      }
-    },
-    onError: (err) => {
-      toast({
-        title: "Erro na compra demo",
-        description: err instanceof Error ? err.message : "Tente novamente.",
-        variant: "destructive",
-      });
-    },
+  const { data: shippingData, isLoading: loadingShipping } = useQuery({
+    queryKey: ["shipping-quote", form.addressState, subtotal],
+    queryFn: () => getShippingQuote(form.addressState, subtotal),
+    enabled: form.addressState.length === 2,
   });
 
-  const handleDemoPurchase = () => {
-    if (items.length === 0) {
-      toast({
-        title: "Carrinho vazio",
-        description: "Adicione itens para testar a compra demo.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const freightCost = shippingData?.finalShippingCost ?? 0;
+  const finalTotal = total + freightCost;
 
-    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const firstItem = items[0];
-    const extraItems = Math.max(items.length - 1, 0);
-    const unitPrice = totalQuantity > 0 ? Number((cartSubtotal / totalQuantity).toFixed(2)) : 149.9;
-    const checkoutBaseUrl = `${window.location.origin}/checkout`;
-
-    demoMutation.mutate({
-      customerName: form.customerName.trim() || undefined,
-      customerEmail: form.customerEmail.trim() || undefined,
-      itemTitle: firstItem ? `${firstItem.name}${extraItems ? ` + ${extraItems} item(ns)` : ""}` : "Compra Demo",
-      unitPrice,
-      quantity: totalQuantity || 1,
-      shippingCost,
-      backUrlSuccess: `${checkoutBaseUrl}?payment=success`,
-      backUrlFailure: `${checkoutBaseUrl}?payment=failure`,
-      backUrlPending: `${checkoutBaseUrl}?payment=pending`,
-    });
-  };
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) {
-      toast({ title: "Carrinho vazio", description: "Adicione produtos antes de finalizar.", variant: "destructive" });
+    if (items.length === 0) return;
+    if (form.addressState.length !== 2) {
+      toast.error("UF inválida", { description: "Informe o estado para calcularmos seu frete regional." });
       return;
+    }
+
+    try {
+      const res = await createMercadoPagoTransparentPayment({ ...form, items, total: finalTotal });
+      setOrderNumber(res.orderNumber);
+      clearCart();
+      toast.success("Manto Garantido!", { description: `Seu pedido #${res.orderNumber} está sendo processado.` });
+    } catch (err) {
+      toast.error("Erro no processamento.");
     }
   };
 
-  const brickAmount = useMemo(() => Number(total.toFixed(2)), [total]);
-
-  useEffect(() => {
-    if (lastBrickAmount.current !== null && lastBrickAmount.current !== brickAmount) {
-      brickInitialized.current = false;
-    }
-    lastBrickAmount.current = brickAmount;
-  }, [brickAmount]);
-
-  useEffect(() => {
-    if (!publicKey || brickInitialized.current || items.length === 0) return;
-    const mp = (window as typeof window & { MercadoPago?: any }).MercadoPago;
-    if (!mp) return;
-
-    const instance = new mp(publicKey, { locale: "pt-BR" });
-    const bricks = instance.bricks();
-    const containerId = "mp-payment-brick";
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = "";
-
-    bricks
-      .create("payment", containerId, {
-        initialization: { amount: brickAmount },
-        customization: {
-          paymentMethods: {
-            creditCard: "all",
-            debitCard: "all",
-            ticket: "all",
-            bankTransfer: "all",
-          },
-        },
-        callbacks: {
-          onReady: () => {
-            brickInitialized.current = true;
-          },
-          onSubmit: async (formData: any) => {
-            if (!form.customerName || !form.customerEmail || !form.addressStreet || !form.addressCity || !form.addressState || !form.addressZip) {
-              toast({ title: "Dados incompletos", description: "Preencha seus dados antes de pagar.", variant: "destructive" });
-              throw new Error("Dados do cliente incompletos");
-            }
-
-            const response = await createMercadoPagoTransparentPayment({
-              customerName: form.customerName,
-              customerEmail: form.customerEmail,
-              customerPhone: form.customerPhone || undefined,
-              addressStreet: form.addressStreet,
-              addressNumber: form.addressNumber,
-              addressComplement: form.addressComplement || undefined,
-              addressNeighborhood: form.addressNeighborhood || undefined,
-              addressCity: form.addressCity,
-              addressState: form.addressState.toUpperCase(),
-              addressZip: form.addressZip,
-              shippingCost,
-              items: items.map((item) => ({
-                productId: item.productId,
-                productName: item.name,
-                variation: item.customName ? `${item.size} | Nome: ${item.customName}` : item.size,
-                quantity: item.quantity,
-                unitPrice: item.price,
-              })),
-              payment: {
-                token: formData.token,
-                paymentMethodId: formData.payment_method_id,
-                installments: formData.installments,
-                issuerId: formData.issuer_id,
-                payer: {
-                  email: formData.payer?.email,
-                  identification: formData.payer?.identification,
-                },
-              },
-            });
-
-            setCreatedOrderNumber(response.orderNumber || null);
-            setTransparentResult({
-              paymentStatus: response.paymentStatus,
-              pixQrCode: response.pixQrCode,
-              pixQrCodeBase64: response.pixQrCodeBase64,
-              ticketUrl: response.ticketUrl,
-            });
-
-            if (response.paymentStatus === "aprovado") {
-              clearCart();
-              toast({ title: "Pagamento aprovado", description: "Pedido confirmado com sucesso." });
-            } else {
-              toast({ title: "Pagamento pendente", description: "Finalize o pagamento usando os dados exibidos." });
-            }
-          },
-          onError: (err: any) => {
-            toast({
-              title: "Erro no pagamento",
-              description: err?.message || "Tente novamente.",
-              variant: "destructive",
-            });
-          },
-        },
-      })
-      .catch(() => {
-        toast({ title: "Erro ao carregar pagamento", description: "Tente recarregar a página.", variant: "destructive" });
-      });
-  }, [publicKey, brickAmount, items, form, shippingCost, toast, clearCart]);
-
-  if (items.length === 0 && !createdOrderNumber) {
+  if (items.length === 0 && !orderNumber) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-20 text-center">
-          <p className="text-muted-foreground">Seu carrinho está vazio.</p>
-          <Link to="/produtos" className="mt-4 inline-block text-primary hover:underline">
-            Ver produtos
+          <p className="text-muted-foreground text-lg mb-6">Seu carrinho está vazio.</p>
+          <Link to="/produtos" className="gradient-primary rounded-xl px-8 py-3 font-heading text-white shadow-lg">
+            VOLTAR À LOJA
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (orderNumber) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-24 text-center max-w-xl">
+          <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-8">
+            <ShieldCheck className="h-10 w-10 text-primary animate-pulse" />
+          </div>
+          <h1 className="font-fat text-4xl text-white mb-4 italic tracking-tighter">PEDIDO CONFIRMADO!</h1>
+          <p className="text-muted-foreground mb-10 text-lg leading-relaxed">
+            O pedido <span className="text-white font-bold">#{orderNumber}</span> foi criado com sucesso. 
+            O total de <span className="text-primary font-bold">{formatCurrency(finalTotal)}</span> está aguardando pagamento.
+          </p>
+          <Link to="/" className="gradient-primary rounded-xl px-12 py-4 font-fat text-xl text-white tracking-tight">
+            INÍCIO
           </Link>
         </div>
       </Layout>
@@ -258,250 +85,119 @@ const Checkout = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto grid gap-8 px-4 py-10 md:grid-cols-3">
+      <div className="container mx-auto grid gap-12 px-4 py-12 md:grid-cols-3">
         <section className="md:col-span-2">
-          <h1 className="font-heading text-3xl text-foreground">CHECKOUT</h1>
-          <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <ShieldCheck className="h-4 w-4 text-primary" /> Compra protegida
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <PackageCheck className="h-4 w-4 text-primary" /> Pedido rastreável
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2">
-              <CreditCard className="h-4 w-4 text-primary" /> Pix, Cartão e Boleto
-            </div>
-          </div>
-
-          {createdOrderNumber ? (
-            <div className="mt-6 rounded-lg border border-primary/30 bg-primary/10 p-5">
-              <p className="text-lg font-semibold text-foreground">Pedido criado: #{createdOrderNumber}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Pagamento em andamento.</p>
-              <Link to="/produtos" className="mt-4 inline-block text-primary hover:underline">
-                Continuar comprando
-              </Link>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="mt-6 grid gap-3">
-              <input
-                required
-                placeholder="Nome completo"
-                value={form.customerName}
-                onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <input
-                required
-                type="email"
-                placeholder="E-mail"
-                value={form.customerEmail}
-                onChange={(e) => setForm({ ...form, customerEmail: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <input
-                required
-                placeholder="Telefone"
-                value={form.customerPhone}
-                onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <input
-                  required
-                  placeholder="Rua"
-                  value={form.addressStreet}
-                  onChange={(e) => setForm({ ...form, addressStreet: e.target.value })}
-                  className="col-span-2 rounded-lg border border-border bg-card px-4 py-2 text-sm"
-                />
-                <input
-                  required
-                  placeholder="Número"
-                  value={form.addressNumber}
-                  onChange={(e) => setForm({ ...form, addressNumber: e.target.value })}
-                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-                />
-              </div>
-              <input
-                placeholder="Complemento"
-                value={form.addressComplement}
-                onChange={(e) => setForm({ ...form, addressComplement: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <input
-                placeholder="Bairro"
-                value={form.addressNeighborhood}
-                onChange={(e) => setForm({ ...form, addressNeighborhood: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <input
-                  required
-                  placeholder="Cidade"
-                  value={form.addressCity}
-                  onChange={(e) => setForm({ ...form, addressCity: e.target.value })}
-                  className="col-span-2 rounded-lg border border-border bg-card px-4 py-2 text-sm"
-                />
-                <input
-                  required
-                  maxLength={2}
-                  placeholder="UF"
-                  value={form.addressState}
-                  onChange={(e) => setForm({ ...form, addressState: e.target.value })}
-                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm uppercase"
-                />
-              </div>
-              <input
-                required
-                placeholder="CEP"
-                value={form.addressZip}
-                onChange={(e) => setForm({ ...form, addressZip: e.target.value })}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm"
-              />
-              <div className="mt-4 rounded-lg border border-border bg-card p-4">
-                <p className="text-sm font-semibold text-foreground">Pagamento seguro</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Finalize o pagamento sem sair desta página (Pix, Cartão ou Boleto).
-                </p>
-                {publicKey ? (
-                  <div id="mp-payment-brick" className="mt-3" />
-                ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">Carregando meios de pagamento...</p>
-                )}
-              </div>
-
-              {transparentResult?.pixQrCodeBase64 && (
-                <div className="mt-4 rounded-lg border border-border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Pix disponível</p>
-                  <img
-                    src={`data:image/png;base64,${transparentResult.pixQrCodeBase64}`}
-                    alt="QR Code Pix"
-                    className="mt-3 h-44 w-44"
-                  />
-                  {transparentResult.pixQrCode && (
-                    <p className="mt-2 break-all text-xs text-muted-foreground">{transparentResult.pixQrCode}</p>
-                  )}
+          <Link to="/produtos" className="flex items-center gap-2 text-muted-foreground hover:text-white mb-8 text-xs font-bold uppercase tracking-widest transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Escolher mais produtos
+          </Link>
+          <h1 className="font-fat text-4xl text-white uppercase italic tracking-tighter mb-10 border-b border-primary/20 pb-4">
+            Finalizar <span className="text-primary">Compra</span>
+          </h1>
+          
+          <form onSubmit={handleFinish} className="space-y-12">
+            <div className="space-y-6">
+              <h3 className="flex items-center gap-3 text-sm font-black text-primary uppercase tracking-widest">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-black font-fat">01</span>
+                Dados Pessoais
+              </h3>
+              <div className="grid gap-4">
+                <input required placeholder="Nome Completo" value={form.customerName} onChange={e => setForm({...form, customerName: e.target.value})} className="w-full rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <input required type="email" placeholder="Seu melhor e-mail" value={form.customerEmail} onChange={e => setForm({...form, customerEmail: e.target.value})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
+                  <input required placeholder="WhatsApp" value={form.customerPhone} onChange={e => setForm({...form, customerPhone: e.target.value})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
                 </div>
-              )}
+              </div>
+            </div>
 
-              {transparentResult?.ticketUrl && (
-                <div className="mt-4 rounded-lg border border-border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Boleto gerado</p>
-                  <a
-                    href={transparentResult.ticketUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
-                  >
-                    Abrir boleto <ExternalLink className="h-4 w-4" />
-                  </a>
+            <div className="space-y-6">
+              <h3 className="flex items-center gap-3 text-sm font-black text-primary uppercase tracking-widest">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-black font-fat">02</span>
+                Endereço de Entrega
+              </h3>
+              <div className="grid gap-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <input required placeholder="CEP" value={form.addressZip} onChange={e => setForm({...form, addressZip: e.target.value})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
+                  <input required placeholder="UF" maxLength={2} value={form.addressState} onChange={e => setForm({...form, addressState: e.target.value.toUpperCase()})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white font-fat text-center focus:border-primary-glow outline-none transition-all placeholder:font-sans placeholder:font-normal" />
+                  <input required placeholder="Cidade" value={form.addressCity} onChange={e => setForm({...form, addressCity: e.target.value})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
                 </div>
-              )}
+                <div className="grid sm:grid-cols-4 gap-4">
+                  <input required placeholder="Rua / Avenida" value={form.addressStreet} onChange={e => setForm({...form, addressStreet: e.target.value})} className="sm:col-span-3 rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
+                  <input required placeholder="Nº" value={form.addressNumber} onChange={e => setForm({...form, addressNumber: e.target.value})} className="rounded-xl border border-border bg-secondary/50 px-6 py-4 text-white focus:border-primary-glow outline-none transition-all" />
+                </div>
+              </div>
+            </div>
 
-              {import.meta.env.DEV && (
-                <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
-                  <p className="text-sm font-semibold text-foreground">Teste de integração (dev)</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Cria pedido demo + preferência do Mercado Pago e abre o checkout em nova aba.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleDemoPurchase}
-                    disabled={demoMutation.isPending}
-                    className="mt-3 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-60"
-                  >
-                    {demoMutation.isPending ? "GERANDO COMPRA DEMO..." : "COMPRA DEMO (MERCADO PAGO)"}
-                  </button>
-                </div>
-              )}
-            </form>
-          )}
+            <button type="submit" className="group relative w-full overflow-hidden rounded-xl gradient-primary py-6 font-fat text-2xl text-white shadow-2xl shadow-primary/40 transition-all hover:scale-[1.02] active:scale-95">
+              <span className="relative z-10 flex items-center justify-center gap-3 italic">
+                FINALIZAR PEDIDO: {formatCurrency(finalTotal)}
+              </span>
+            </button>
+          </form>
         </section>
 
-        <aside className="rounded-lg border border-border bg-card p-5">
-          <h2 className="font-heading text-xl text-foreground">Resumo do Pedido</h2>
-          <div className="mt-4 space-y-3">
-            {items.map((item) => (
-              <div key={`${item.productId}-${item.size}-${item.customName || ""}`} className="flex gap-3 border-b border-border pb-3">
-                <img src={item.image} alt={item.name} className="h-16 w-12 rounded-md object-cover" />
-                <div className="flex-1 text-sm">
-                  <p className="font-medium text-foreground">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Tam: {item.size} · Qtd: {item.quantity}
-                  </p>
-                  {item.customName && <p className="text-xs text-primary">Nome: {item.customName}</p>}
-                  <p className="text-sm font-semibold text-primary">R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}</p>
-                </div>
-              </div>
-            ))}
-
-            <div className="border-b border-border pb-3">
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground">
-                      {appliedCoupon.code} — {appliedCoupon.label}
-                    </span>
+        <aside className="h-fit space-y-6">
+          <div className="rounded-3xl border border-border bg-secondary/30 p-8 backdrop-blur-xl">
+            <h2 className="font-fat text-2xl text-white mb-8 italic tracking-tighter">Carrinho</h2>
+            
+            <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+              {items.map(item => (
+                <div key={`${item.productId}-${item.size}`} className="flex gap-4 border-b border-white/5 pb-6">
+                  <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-black border border-white/10">
+                    <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                   </div>
-                  <button onClick={removeCoupon} className="text-xs text-muted-foreground hover:text-destructive">
-                    Remover
-                  </button>
+                  <div className="flex-1">
+                    <p className="font-heading text-sm text-white line-clamp-1">{item.name}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold mt-1">Tam: {item.size} • Qtd: {item.quantity}</p>
+                    <p className="text-primary font-fat mt-1">{formatCurrency(item.price * item.quantity)}</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="Cupom de desconto"
-                    className="flex-1 rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
-                  />
-                  <button type="button" onClick={handleApplyCoupon} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
-                    Aplicar
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
 
-            {quote && (
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  Região: {quote.region} ({quote.state})
-                </p>
-                <p>Entrega estimada: {quote.estimateDays.min} a {quote.estimateDays.max} dias úteis</p>
-              </div>
-            )}
-
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between text-muted-foreground">
+            <div className="mt-8 pt-8 space-y-4 border-t border-white/5">
+              <div className="flex justify-between text-muted-foreground font-medium text-sm">
                 <span>Subtotal</span>
-                <span>R$ {cartSubtotal.toFixed(2).replace(".", ",")}</span>
+                <span>{formatCurrency(subtotal)}</span>
               </div>
               {appliedCoupon && (
-                <div className="flex justify-between text-primary">
-                  <span>Desconto ({appliedCoupon.discount}%)</span>
-                  <span>- R$ {discountAmount.toFixed(2).replace(".", ",")}</span>
+                <div className="flex justify-between text-primary font-bold text-sm">
+                  <span>Desconto ({appliedCoupon.label})</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-muted-foreground">
-                <span>Frete</span>
-                <span>R$ {shippingCost.toFixed(2).replace(".", ",")}</span>
+              <div className="flex justify-between text-muted-foreground items-center text-sm">
+                <span className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-primary" /> 
+                  Frete Regional {shippingData ? `(${shippingData.region})` : ""}
+                </span>
+                <span className={cn("font-bold", freightCost === 0 && "text-green-500")}>
+                  {loadingShipping ? "Calculando..." : freightCost === 0 ? "GRÁTIS" : formatCurrency(freightCost)}
+                </span>
               </div>
-              <div className="flex justify-between border-t border-border pt-2 font-heading text-xl text-foreground">
+              
+              <div className="flex justify-between border-t border-primary/20 pt-6 font-fat text-3xl text-white italic tracking-tighter">
                 <span>Total</span>
-                <span className="text-primary">R$ {total.toFixed(2).replace(".", ",")}</span>
+                <span className="text-primary">{formatCurrency(finalTotal)}</span>
               </div>
+              
+              {shippingData && (
+                <div className="bg-primary/10 rounded-2xl p-4 text-[11px] text-muted-foreground border border-primary/20 mt-6 leading-relaxed">
+                  <p className="text-white font-bold mb-1 uppercase tracking-widest flex items-center gap-2">
+                    <CreditCard className="w-3 h-3 text-primary" /> Logística Premium
+                  </p>
+                  Envio para {shippingData.state} via frete {shippingData.region}. Entrega estimada em {shippingData.estimateDays.min}-{shippingData.estimateDays.max} dias.
+                </div>
+              )}
             </div>
-
-            <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-foreground">
-              <p className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-primary" /> Envio nacional com rastreio.
-              </p>
-              <p className="flex items-center gap-2">
-                <BadgeCheck className="h-4 w-4 text-primary" /> Dados salvos após confirmação.
-              </p>
+          </div>
+          
+          <div className="rounded-2xl border border-white/5 bg-secondary/40 p-6 flex items-center gap-4">
+            <div className="h-10 w-10 flex items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-white uppercase tracking-widest">Pagamento Criptografado</p>
+              <p className="text-[10px] text-muted-foreground">Checkout seguro com processamento via SSL.</p>
             </div>
           </div>
         </aside>

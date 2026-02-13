@@ -21,8 +21,8 @@ import reportsRoutes from "./modules/reports/reports.routes.js";
 import adminEmailRoutes from "./modules/admin-email/admin-email.routes.js";
 import adminSeedRoutes from "./modules/admin-seed/admin-seed.routes.js";
 
-const defaultOrigins = ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"];
-const allowedOrigins = env.FRONTEND_ORIGINS.length > 0 ? env.FRONTEND_ORIGINS : defaultOrigins;
+const defaultOrigins = ["http://localhost:8080", "http://localhost:8081", "http://localhost:5173", "http://localhost:3000"];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...env.FRONTEND_ORIGINS]));
 
 const app = express();
 
@@ -54,6 +54,8 @@ app.use(
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+      if (/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) return callback(null, true);
       if (/^https:\/\/.+\.vercel\.app$/.test(origin)) return callback(null, true);
       return callback(new Error("Origem não permitida por CORS"));
     },

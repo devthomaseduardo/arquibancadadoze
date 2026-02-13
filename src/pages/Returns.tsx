@@ -1,5 +1,7 @@
-import Layout from "@/components/Layout";
-import { RefreshCw } from "lucide-react";
+
+import React from "react";
+import Layout from "../components/Layout";
+import { RefreshCw, ShieldCheck, AlertCircle } from "lucide-react";
 
 const Returns = () => {
   return (
@@ -7,44 +9,63 @@ const Returns = () => {
       <div className="container mx-auto max-w-3xl px-4 py-12">
         <div className="flex items-center gap-3">
           <RefreshCw className="h-8 w-8 text-primary" />
-          <h1 className="font-heading text-4xl text-foreground">TROCAS E DEVOLUÇÕES</h1>
+          <h1 className="font-heading text-4xl text-white uppercase tracking-tight">Trocas e Devoluções</h1>
         </div>
 
-        <div className="mt-8 space-y-6">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="font-heading text-xl text-foreground">QUANDO ACEITAMOS TROCAS</h3>
-            <ul className="mt-3 space-y-2 text-sm text-foreground/80">
-              <li>✅ <strong>Defeito de fabricação</strong> — costuras soltas, estampas com falhas, tecido danificado</li>
-              <li>✅ <strong>Tamanho errado enviado</strong> — quando o tamanho recebido é diferente do pedido</li>
-            </ul>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="font-heading text-xl text-foreground">PRAZO PARA SOLICITAÇÃO</h3>
-            <p className="mt-3 text-sm text-foreground/80">
-              O prazo para solicitar troca é de <span className="font-semibold text-primary">7 dias corridos</span> após 
-              o recebimento do produto. Após esse período, a troca não será aceita.
+        <div className="mt-8 space-y-8">
+          <section className="space-y-4">
+            <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-widest text-sm">
+              <ShieldCheck className="w-4 h-4" />
+              Sua satisfação é nossa prioridade
+            </div>
+            <p className="text-zinc-400 leading-relaxed text-lg">
+              Na <span className="text-white font-bold">Arquibancada 12</span>, queremos que você vista seu manto com orgulho. 
+              Caso precise trocar ou devolver seu produto, confira nossa política baseada no Código de Defesa do Consumidor.
             </p>
+          </section>
+
+          <div className="grid gap-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
+              <h3 className="font-heading text-xl text-white mb-3">Direito de Arrependimento</h3>
+              <p className="text-sm text-zinc-400">
+                Você tem até <strong className="text-white">7 dias corridos</strong> após o recebimento do produto 
+                para solicitar a devolução por arrependimento. O produto deve estar com as etiquetas originais, 
+                sem marcas de uso e em sua embalagem original.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
+              <h3 className="font-heading text-xl text-white mb-3">Defeitos de Fabricação</h3>
+              <p className="text-sm text-zinc-400">
+                Caso o produto apresente defeitos de fabricação (bordados falhos, costuras soltas, erros na personalização), 
+                entre em contato conosco em até <strong className="text-white">30 dias</strong>. A troca será realizada sem custos adicionais.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-red-900/20 bg-red-900/5 p-6 border-dashed">
+              <div className="flex items-center gap-2 text-red-400 font-bold mb-3 uppercase text-xs tracking-widest">
+                <AlertCircle className="w-4 h-4" />
+                Atenção Especial
+              </div>
+              <p className="text-sm text-zinc-500">
+                Produtos <strong className="text-zinc-300">Personalizados</strong> (com nome e número escolhidos pelo cliente) 
+                só poderão ser trocados em caso de defeito de fabricação ou erro na personalização por nossa parte. 
+                Não realizamos trocas de personalizados por escolha incorreta de tamanho.
+              </p>
+            </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="font-heading text-xl text-foreground">COMO SOLICITAR</h3>
-            <ol className="mt-3 space-y-2 text-sm text-foreground/80">
-              <li>1. Entre em contato pelo WhatsApp ou e-mail dentro do prazo de 7 dias</li>
-              <li>2. Envie fotos do produto com o defeito ou do tamanho incorreto</li>
-              <li>3. Aguarde a análise da nossa equipe (até 48h)</li>
-              <li>4. Se aprovada, envie o produto de volta (frete por nossa conta)</li>
-              <li>5. Novo produto enviado em até 5 dias úteis após recebimento</li>
-            </ol>
-          </div>
-
-          <div className="rounded-lg border border-accent/30 bg-accent/5 p-6">
-            <h3 className="font-heading text-xl text-accent">ATENÇÃO</h3>
-            <p className="mt-3 text-sm text-foreground/80">
-              Trocas por <strong>arrependimento</strong>, troca de tamanho por preferência pessoal ou 
-              demais motivos que não sejam defeito de fabricação ou envio incorreto são de 
-              <strong> responsabilidade do cliente</strong>, incluindo os custos de envio.
+          <div className="space-y-4 border-t border-zinc-800 pt-8">
+            <h3 className="font-heading text-2xl text-white">Como solicitar?</h3>
+            <p className="text-zinc-400 text-sm">
+              Para iniciar o processo, entre em contato com nosso suporte via WhatsApp enviando fotos do produto e o número do pedido.
             </p>
+            <a 
+              href="https://wa.me/5511999999999" 
+              className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 border border-zinc-800 px-6 py-3 text-sm font-bold text-white hover:border-primary transition-all duration-300"
+            >
+              Falar com Suporte no WhatsApp
+            </a>
           </div>
         </div>
       </div>

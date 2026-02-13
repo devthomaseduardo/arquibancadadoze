@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import { X, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PROMOS = [
-  { id: 1, text: "🔥 Use o cupom PENABOLA10 e ganhe 10% OFF em toda a loja!", bg: "from-primary/20 to-accent/10" },
-  { id: 2, text: "⚽ FRETE GRÁTIS acima de R$ 500! Aproveite agora!", bg: "from-accent/20 to-primary/10" },
-  { id: 3, text: "🏆 Primeira compra? Use PRIMEIRACOMPRA e ganhe 20% OFF!", bg: "from-primary/30 to-background" },
+  { id: 1, text: "🔥 Use o cupom PENABOLA10 e ganhe 10% OFF em toda a loja!" },
+  { id: 2, text: "⚽ FRETE GRÁTIS acima de R$ 500! Aproveite agora!" },
 ];
 
 const PromoBanner = () => {
@@ -24,23 +24,23 @@ const PromoBanner = () => {
   const promo = PROMOS[currentIndex];
 
   return (
-    <div className={`relative border-b border-primary/20 bg-gradient-to-r ${promo.bg}`}>
-      <div className="container mx-auto flex items-center justify-center gap-2 px-4 py-2.5">
+    <div className="relative border-b border-primary/20 bg-zinc-900">
+      <div className="container mx-auto flex items-center justify-center gap-2 px-4 py-2">
         <AnimatePresence mode="wait">
           <motion.p
             key={promo.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex items-center gap-2 text-center text-sm font-medium text-foreground"
+            className="flex items-center gap-2 text-center text-xs font-medium text-white"
           >
-            <Zap className="hidden h-4 w-4 text-primary sm:block" />
+            <Zap className="h-3 w-3 text-primary" />
             {promo.text}
           </motion.p>
         </AnimatePresence>
         <button
           onClick={() => setDismissed(true)}
-          className="absolute right-3 text-muted-foreground hover:text-foreground"
+          className="absolute right-3 text-zinc-500 hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>

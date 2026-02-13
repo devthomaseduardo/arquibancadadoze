@@ -1,139 +1,141 @@
-import { useMemo, useState } from "react";
-import Layout from "@/components/Layout";
-import { Instagram, Facebook, Twitter, MessageCircle, Mail, Send } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { getConfig } from "@/lib/api";
-import { parseConfigValue } from "@/lib/store-mappers";
-import { criativos } from "@/data/criativos";
-import BannerCarousel from "@/components/BannerCarousel";
 
-type AboutConfig = { title?: string; text?: string };
-type BusinessHoursConfig = { text?: string };
+import React, { useState } from "react";
+import { Mail, Send, Instagram, Facebook, MessageCircle } from "lucide-react";
+import Layout from "../components/Layout";
+import { criativos } from "../data/criativos";
+import BannerCarousel from "../components/BannerCarousel";
+import { toast } from "sonner";
 
 const About = () => {
-  const { toast } = useToast();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
-
-  const { data: config = {} } = useQuery({
-    queryKey: ["site-config", "about"],
-    queryFn: () =>
-      getConfig([
-        "about",
-        "business_hours",
-        "contact_whatsapp",
-        "contact_email",
-        "contact_instagram",
-        "contact_facebook",
-      ]),
-  });
-
-  const about = useMemo(() => parseConfigValue<AboutConfig>(config.about, {}), [config.about]);
-  const businessHours = useMemo(
-    () => parseConfigValue<BusinessHoursConfig>(config.business_hours, {}),
-    [config.business_hours],
-  );
-
-  const whatsapp = config.contact_whatsapp || "5511999999999";
-  const email = config.contact_email || "contato@arquibancada12.com";
-  const instagram = config.contact_instagram || "#";
-  const facebook = config.contact_facebook || "#";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+    if (!form.name || !form.email || !form.message) {
+      toast.error("Por favor, preencha todos os campos!");
       return;
     }
-    toast({ title: "Mensagem enviada!", description: "Entraremos em contato em breve." });
+    
+    // Simulate API call
+    toast.success("Mensagem enviada com sucesso!", {
+      description: "Nossa equipe entrará em contato em breve."
+    });
+    
     setForm({ name: "", email: "", message: "" });
   };
 
   return (
     <Layout>
-      <div className="container mx-auto max-w-4xl px-4 py-12">
-        <h1 className="font-heading text-4xl text-foreground">{about.title?.toUpperCase() || "QUEM SOMOS"}</h1>
-
-        <div className="mt-8 grid gap-8 md:grid-cols-2">
-          <div className="space-y-4 text-sm text-foreground/80">
-            <div className="overflow-hidden rounded-2xl border border-border">
+      <div className="container mx-auto max-w-6xl px-4 py-12">
+        <h1 className="font-heading text-4xl text-white uppercase mb-12 text-center md:text-left">
+          Quem Somos & <span className="text-primary">Contato</span>
+        </h1>
+        
+        <div className="grid gap-16 lg:grid-cols-2">
+          {/* About Section */}
+          <div className="space-y-8">
+            <div className="rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl shadow-primary/5">
               <BannerCarousel
                 images={[
-                  { src: criativos.bannerSecundario, alt: "Criativo Arquibancada 12" },
-                  { src: criativos.bannerPrincipal, alt: "Paixão de torcedor" },
+                  { src: criativos.bannerPrincipal, alt: "A12 Lifestyle" },
+                  { src: criativos.bannerSecundario, alt: "Qualidade Premium" },
                 ]}
-                className="rounded-2xl border border-border"
+                className="aspect-video"
               />
             </div>
-
-            <p>{about.text || "Somos apaixonados por futebol e estilo."}</p>
-
-            <div className="mt-6">
-              <h3 className="font-heading text-xl text-foreground">HORÁRIO DE ATENDIMENTO</h3>
-              <p className="mt-2">{businessHours.text || "Atendimento em horário comercial."}</p>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <a href={instagram} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a href={facebook} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a href="#" className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href={`https://wa.me/${whatsapp}`} className="rounded-lg bg-muted p-3 transition-colors hover:bg-primary hover:text-primary-foreground">
-                <MessageCircle className="h-5 w-5" />
-              </a>
+            
+            <div className="space-y-6 text-zinc-400 leading-relaxed text-lg">
+              <p>
+                A <strong>Arquibancada 12</strong> nasceu da paixão visceral pelo futebol. 
+                Somos mais do que uma loja; somos o ponto de encontro de quem vive o jogo intensamente, 
+                da arquibancada para as ruas.
+              </p>
+              <p>
+                Nossa missão é democratizar o acesso a camisas de altíssima qualidade, 
+                trabalhando exclusivamente com o padrão tailandês premium 1:1, garantindo 
+                que cada detalhe — do tecido tecnológico aos bordados impecáveis — honre 
+                a história do seu time.
+              </p>
+              
+              <div className="pt-6">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Siga nossa paixão</h3>
+                <div className="flex gap-4">
+                  {[Instagram, Facebook, MessageCircle].map((Icon, i) => (
+                    <a 
+                      key={i} 
+                      href="#" 
+                      className="p-3 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-primary hover:border-primary transition-all duration-300"
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" />
-              <h3 className="font-heading text-xl text-foreground">FALE CONOSCO</h3>
+          {/* Contact Form Section */}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-8 md:p-10 backdrop-blur-sm h-fit">
+            <div className="flex items-center gap-3 mb-8">
+              <Mail className="h-6 w-6 text-primary" />
+              <h2 className="font-heading text-2xl text-white uppercase tracking-tight">Fale com a gente</h2>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">E-mail: {email}</p>
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome</label>
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block ml-1">
+                  Nome Completo
+                </label>
                 <input
                   type="text"
+                  required
+                  placeholder="Seu nome"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  maxLength={100}
-                  className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-xl border border-zinc-800 bg-black/50 px-4 py-3.5 text-white outline-none focus:border-primary/50 transition-all duration-300 placeholder:text-zinc-700"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">E-mail</label>
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block ml-1">
+                  Endereço de E-mail
+                </label>
                 <input
                   type="email"
+                  required
+                  placeholder="exemplo@email.com"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  maxLength={255}
-                  className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-xl border border-zinc-800 bg-black/50 px-4 py-3.5 text-white outline-none focus:border-primary/50 transition-all duration-300 placeholder:text-zinc-700"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Mensagem</label>
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block ml-1">
+                  Sua Mensagem
+                </label>
                 <textarea
+                  required
                   rows={4}
+                  placeholder="Conte-nos como podemos ajudar..."
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  maxLength={1000}
-                  className="w-full resize-none rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-xl border border-zinc-800 bg-black/50 px-4 py-3.5 text-white outline-none focus:border-primary/50 transition-all duration-300 resize-none placeholder:text-zinc-700"
                 />
               </div>
+              
               <button
                 type="submit"
-                className="gradient-primary flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-heading text-lg text-primary-foreground transition-all hover:opacity-90 neon-glow"
+                className="w-full gradient-primary rounded-xl py-4 font-heading text-lg text-white flex items-center justify-center gap-3 shadow-xl shadow-primary/10 transition-all duration-300 hover:scale-[1.01] hover:brightness-110 active:scale-95 group"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                 ENVIAR MENSAGEM
               </button>
             </form>
+            
+            <p className="mt-8 text-center text-xs text-zinc-600">
+              Retornamos em até 24h úteis.
+            </p>
           </div>
         </div>
       </div>
