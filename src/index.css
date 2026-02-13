@@ -6,47 +6,49 @@
 
 @layer base {
   :root {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 96%;
+    /* Base escura premium */
+    --background: 240 9% 6%; /* #0B0B0F-ish */
+    --foreground: 240 10% 96%; /* #F2F2F7 */
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 96%;
+    --card: 240 7% 8%;
+    --card-foreground: 240 10% 96%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 240 7% 10%;
+    --popover-foreground: 240 10% 96%;
 
-    --primary: 45 100% 50%;
-    --primary-foreground: 0 0% 4%;
+    /* Identidade A12 */
+    --primary: 269 76% 55%; /* Roxo #7B3FF2 */
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary: 331 100% 60%; /* Magenta #FF3D8B */
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 240 7% 26%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 38 100% 55%;
-    --accent-foreground: 0 0% 4%;
+    --accent: 31 100% 55%; /* Laranja #FF7A18 para toques */
+    --accent-foreground: 0 0% 6%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 96%;
+    --destructive: 0 78% 52%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 16%;
-    --input: 0 0% 16%;
-    --ring: 45 100% 50%;
+    --border: 240 7% 18%;
+    --input: 240 7% 18%;
+    --ring: 269 76% 55%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 45 100% 50%;
-    --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 12%;
+    --sidebar-background: 240 8% 8%;
+    --sidebar-foreground: 0 0% 97%;
+    --sidebar-primary: 269 76% 55%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 331 100% 60%;
     --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 16%;
-    --sidebar-ring: 45 100% 50%;
+    --sidebar-border: 240 7% 18%;
+    --sidebar-ring: 269 76% 55%;
 
-    --neon-glow: 0 0 20px hsl(45 100% 50% / 0.4), 0 0 40px hsl(45 100% 50% / 0.2);
-    --accent-glow: 0 0 20px hsl(38 100% 55% / 0.4), 0 0 40px hsl(38 100% 55% / 0.2);
+    --neon-glow: 0 0 20px hsl(269 76% 55% / 0.35), 0 0 40px hsl(331 100% 60% / 0.25);
+    --accent-glow: 0 0 20px hsl(31 100% 55% / 0.30), 0 0 40px hsl(31 100% 55% / 0.18);
 
     --font-heading: 'Bebas Neue', sans-serif;
     --font-body: 'Inter', sans-serif;
@@ -61,15 +63,55 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    background-image:
+      radial-gradient(1200px 500px at 10% -10%, hsl(269 76% 55% / 0.16), transparent 55%),
+      radial-gradient(1000px 450px at 90% -20%, hsl(331 100% 60% / 0.14), transparent 52%),
+      linear-gradient(180deg, hsl(240 9% 6%), hsl(240 10% 4%));
+    position: relative;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     letter-spacing: 0.05em;
   }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.06;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1px);
+    background-size: 4px 4px;
+  }
 }
 
 @layer utilities {
+  .bg-pitch {
+    background-color: hsl(240 10% 4%);
+  }
+
+  .bg-pitch-light {
+    background-color: hsl(240 8% 10%);
+  }
+
+  .border-pitch-lines {
+    border-color: hsl(240 7% 22%);
+  }
+
+  .glass-card {
+    background: linear-gradient(160deg, hsl(240 8% 9% / 0.78), hsl(240 7% 6% / 0.62));
+    border: 1px solid hsl(0 0% 100% / 0.09);
+    backdrop-filter: blur(12px);
+  }
+
+  .stadium-light {
+    background-image:
+      radial-gradient(55% 45% at 15% 0%, hsl(269 76% 55% / 0.2), transparent 58%),
+      radial-gradient(55% 45% at 85% 0%, hsl(331 100% 60% / 0.2), transparent 58%);
+  }
+
   .neon-glow {
     box-shadow: var(--neon-glow);
   }
@@ -79,7 +121,7 @@
   }
 
   .text-neon-glow {
-    text-shadow: 0 0 10px hsl(45 100% 50% / 0.6), 0 0 30px hsl(45 100% 50% / 0.3);
+    text-shadow: 0 0 12px hsl(269 76% 55% / 0.55), 0 0 28px hsl(331 100% 60% / 0.3);
   }
 
   .graffiti-border {
@@ -87,16 +129,25 @@
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(45 100% 50%), hsl(38 100% 45%));
+    background: linear-gradient(135deg, hsl(269 76% 55%), hsl(331 100% 60%));
   }
 
   .gradient-accent {
-    background: linear-gradient(135deg, hsl(38 100% 55%), hsl(30 100% 50%));
+    background: linear-gradient(135deg, hsl(31 100% 55%), hsl(44 100% 50%));
   }
 
   .spray-texture {
-    background-image: radial-gradient(circle at 20% 50%, hsl(45 100% 50% / 0.05) 0%, transparent 50%),
-                       radial-gradient(circle at 80% 20%, hsl(38 100% 55% / 0.05) 0%, transparent 50%),
-                       radial-gradient(circle at 50% 80%, hsl(45 100% 50% / 0.03) 0%, transparent 50%);
+    background-image:
+      radial-gradient(circle at 20% 50%, hsl(269 76% 55% / 0.08) 0%, transparent 52%),
+      radial-gradient(circle at 80% 20%, hsl(331 100% 60% / 0.08) 0%, transparent 52%),
+      radial-gradient(circle at 50% 80%, hsl(31 100% 55% / 0.05) 0%, transparent 52%);
+  }
+
+  .skew-x-card {
+    transform: skewX(-10deg);
+  }
+
+  .skew-content {
+    transform: skewX(10deg);
   }
 }

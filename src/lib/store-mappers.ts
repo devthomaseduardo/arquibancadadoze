@@ -28,6 +28,15 @@ export type StoreProduct = {
 
 const PLACEHOLDER_IMAGE = "/placeholder.svg";
 
+const categorySlugToEditorialImage: Record<string, string> = {
+  "camisas-tailandesas-torcedor": "/categorias-editorial/torcida-premium.svg",
+  "tailandesa-torcedor-g4": "/categorias-editorial/torcida-elite.svg",
+  "conjuntos-infantis-tailandeses": "/categorias-editorial/arquibancada-kids.svg",
+  "retro-tailandesas": "/categorias-editorial/classicos-do-futebol.svg",
+  "camisas-nacionais-premium": "/categorias-editorial/manto-nacional.svg",
+  "bones-premium": "/categorias-editorial/extras-de-estadio.svg",
+};
+
 const categorySlugToMediaKey: Record<string, keyof typeof uploadedProdutosByCategoria> = {
   "camisas-tailandesas-torcedor": "tailandesa-1-1-torcedor",
   "tailandesa-torcedor-g1": "tailandesa-1-1-torcedor",
@@ -55,10 +64,14 @@ export function getUploadedMediaForCategorySlug(categorySlug: string): string[] 
   return mediaList.filter(isDisplayableImage);
 }
 
-const teamByPath = new Map(catalogoProdutos.map((item) => [item.path, item.clube]));
+const catalogByPath = new Map(catalogoProdutos.map((item) => [item.path, item]));
 
 export function getTeamByMediaPath(path: string): string {
-  return teamByPath.get(path) ?? "Não identificado";
+  return catalogByPath.get(path)?.clube ?? "Não identificado";
+}
+
+export function getCatalogInfoByMediaPath(path: string) {
+  return catalogByPath.get(path);
 }
 
 export function parseSizes(raw: string | null | undefined): string[] {
@@ -67,12 +80,16 @@ export function parseSizes(raw: string | null | undefined): string[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
   } catch {
-    return [];
+    return raw
+      .split(/[,;|]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 }
 
 export function toStoreCategory(category: ApiCategory): StoreCategory {
   const fallbackImage = fallbackImageForCategorySlug(category.slug);
+  const editorial = categorySlugToEditorialImage[category.slug];
   const prices = (category.products ?? []).flatMap((p) => [p.priceMin, p.priceMax]).filter((v) => Number.isFinite(v));
   const minPrice = prices.length ? Math.min(...prices) : null;
   const maxPrice = prices.length ? Math.max(...prices) : null;
@@ -85,7 +102,7 @@ export function toStoreCategory(category: ApiCategory): StoreCategory {
       minPrice != null && maxPrice != null
         ? `R$ ${Math.round(minPrice)} – R$ ${Math.round(maxPrice)}`
         : "Consulte os valores",
-    image: category.imageUrl || fallbackImage || PLACEHOLDER_IMAGE,
+    image: category.imageUrl || editorial || fallbackImage || PLACEHOLDER_IMAGE,
   };
 }
 

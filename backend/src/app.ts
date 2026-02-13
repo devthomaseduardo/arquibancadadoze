@@ -16,6 +16,7 @@ import campaignsRoutes from "./modules/campaigns/campaigns.routes.js";
 import influencersRoutes from "./modules/influencers/influencers.routes.js";
 import adminSettingsRoutes from "./modules/admin-settings/admin-settings.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
+import adminEmailRoutes from "./modules/admin-email/admin-email.routes.js";
 
 const defaultOrigins = ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"];
 const allowedOrigins = env.FRONTEND_ORIGINS.length > 0 ? env.FRONTEND_ORIGINS : defaultOrigins;
@@ -49,6 +50,7 @@ app.use("/api/admin/campaigns", campaignsRoutes);
 app.use("/api/admin/influencers", influencersRoutes);
 app.use("/api/admin/settings", adminSettingsRoutes);
 app.use("/api/admin/reports", reportsRoutes);
+app.use("/api/admin/test-email", adminEmailRoutes);
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "torcida-urbana-api" }));
 

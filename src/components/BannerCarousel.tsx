@@ -8,6 +8,7 @@ type BannerCarouselProps = {
   imgClassName?: string;
   aspectClassName?: string;
   showArrows?: boolean;
+  objectPosition?: string;
 };
 
 const BannerCarousel = ({
@@ -17,6 +18,7 @@ const BannerCarousel = ({
   imgClassName = "h-full w-full object-cover",
   aspectClassName = "aspect-[3/2]",
   showArrows = true,
+  objectPosition = "center",
 }: BannerCarouselProps) => {
   const [index, setIndex] = useState(0);
 
@@ -38,6 +40,7 @@ const BannerCarousel = ({
           src={image.src}
           alt={image.alt}
           className={`${imgClassName} absolute inset-0 transition-opacity duration-700 ${i === index ? "opacity-100" : "opacity-0"}`}
+          style={{ objectPosition }}
         />
       ))}
       {showArrows && images.length > 1 && (

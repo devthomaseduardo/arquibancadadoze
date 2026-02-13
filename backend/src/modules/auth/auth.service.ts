@@ -8,6 +8,19 @@ const SALT_ROUNDS = 10;
 
 export type JwtPayload = { userId: string; email: string };
 
+export async function upsertGoogleUser(googleId: string, email: string, name: string) {
+  const normalized = email.trim().toLowerCase();
+  const user = await prisma.user.upsert({
+    where: { email: normalized },
+    // googleId nao esta persistido no schema atual; mantemos login via e-mail.
+    update: { name },
+    create: { name, email: normalized, passwordHash: "google" },
+    select: { id: true, email: true, name: true, createdAt: true },
+  });
+  const token = signToken({ userId: user.id, email: user.email });
+  return { user, token };
+}
+
 export async function register(name: string, email: string, password: string) {
   const normalized = email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email: normalized } });

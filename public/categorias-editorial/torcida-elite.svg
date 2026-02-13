@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1500" viewBox="0 0 1200 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B0B0F"/>
+      <stop offset="1" stop-color="#121218"/>
+    </linearGradient>
+    <radialGradient id="spot" cx="50%" cy="14%" r="62%">
+      <stop offset="0" stop-color="#FF3D8B" stop-opacity="0.28"/>
+      <stop offset="0.45" stop-color="#7B3FF2" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#7B3FF2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="floor" cx="50%" cy="78%" r="60%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+      <feColorMatrix type="matrix" values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 0.08 0"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="24" result="b"/>
+      <feColorMatrix in="b" type="matrix" values="
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0.65 0" result="s"/>
+      <feOffset in="s" dx="0" dy="12"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15151F"/>
+      <stop offset="0.55" stop-color="#0C0C12"/>
+      <stop offset="1" stop-color="#1B1B29"/>
+    </linearGradient>
+    <linearGradient id="trim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7B3FF2" stop-opacity="0.15"/>
+      <stop offset="0.55" stop-color="#FF3D8B" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FF3D8B" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1500" fill="url(#bg)"/>
+  <rect width="1200" height="1500" fill="url(#spot)"/>
+  <rect width="1200" height="1500" fill="url(#floor)"/>
+  <rect width="1200" height="1500" filter="url(#grain)" opacity="0.55"/>
+
+  <ellipse cx="600" cy="1090" rx="280" ry="78" fill="#000000" opacity="0.60" filter="url(#shadow)"/>
+
+  <g filter="url(#shadow)">
+    <path d="M360 425
+      C320 462 295 488 260 512
+      C240 526 220 536 205 546
+      L272 724
+      C302 704 326 690 352 672
+      L352 1125
+      C352 1172 390 1210 437 1210
+      L763 1210
+      C810 1210 848 1172 848 1125
+      L848 672
+      C874 690 898 704 928 724
+      L995 546
+      C980 536 960 526 940 512
+      C905 488 880 462 840 425
+      C796 384 754 360 708 345
+      C700 420 655 472 600 472
+      C545 472 500 420 492 345
+      C446 360 404 384 360 425Z"
+      fill="url(#shirt)"/>
+    <path d="M475 344
+      C486 450 542 510 600 510
+      C658 510 714 450 725 344"
+      fill="none" stroke="url(#trim)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M352 820 L352 700 M848 820 L848 700" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <g font-family="Bebas Neue, Arial, sans-serif" fill="#F2F2F7">
+    <text x="80" y="160" font-size="56" letter-spacing="6" opacity="0.92">TORCIDA ELITE</text>
+    <text x="80" y="210" font-size="22" letter-spacing="2" opacity="0.65">
+      Ambiente mais sofisticado, iluminacao mais intensa e detalhada, sensacao de exclusividade.
+    </text>
+  </g>
+</svg>

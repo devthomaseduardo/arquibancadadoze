@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { getProductBySlug } from "@/lib/api";
-import { getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreProductDetail } from "@/lib/store-mappers";
+import { getCatalogInfoByMediaPath, getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreProductDetail } from "@/lib/store-mappers";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 
@@ -32,7 +32,8 @@ const ProductDetail = () => {
     return [...new Set(list)];
   }, [product]);
   const activeImage = gallery[activeImageIndex] || product?.image;
-  const teamName = activeImage ? getTeamByMediaPath(activeImage) : "Não identificado";
+  const catalogInfo = activeImage ? getCatalogInfoByMediaPath(activeImage) : null;
+  const teamName = catalogInfo?.clube || (activeImage ? getTeamByMediaPath(activeImage) : "Não identificado");
 
   useEffect(() => {
     setActiveImageIndex(0);

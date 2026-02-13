@@ -12,9 +12,10 @@ import BannerCarousel from "@/components/BannerCarousel";
 import PromoBanner from "@/components/PromoBanner";
 
 const testimonials = [
-  { name: "Lucas M.", text: "Qualidade incrível! Não dá pra diferenciar da original. Entrega rápida!", rating: 5 },
-  { name: "Fernanda R.", text: "Comprei pro meu filho e ele amou. O conjunto infantil é perfeito!", rating: 5 },
-  { name: "Roberto S.", text: "Já é minha terceira compra. Sempre com qualidade impecável.", rating: 5 },
+  { name: "Lucas M.", text: "Qualidade acima do esperado. O tecido é confortável e bem acabado.", rating: 5 },
+  { name: "Fernanda R.", text: "Comprei o conjunto infantil e meu filho adorou. Ótimo material.", rating: 5 },
+  { name: "Roberto S.", text: "Já é minha terceira compra. Sempre recebo dentro do prazo.", rating: 5 },
+  { name: "Mariana L.", text: "Veio bem embalado, com rastreio e atendimento rápido.", rating: 5 },
 ];
 
 const Index = () => {
@@ -41,7 +42,7 @@ const Index = () => {
   return (
     <Layout>
       <PromoBanner />
-      <section className="relative bg-black py-2">
+      <section className="relative stadium-light bg-black py-3">
         <BannerCarousel
           images={[
             { src: criativos.bannerPrincipal, alt: "Arquibancada 12 - Vista a paixão pelo futebol" },
@@ -50,57 +51,114 @@ const Index = () => {
           ]}
           className="w-full"
           imgClassName="h-full w-full object-cover"
-          aspectClassName="aspect-[3/2]"
+          aspectClassName="aspect-[21/7] md:aspect-[16/5]"
+          objectPosition="center top"
         />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0">
+          <div className="container mx-auto px-4 pb-8 md:pb-10">
+            <div className="max-w-2xl rounded-2xl border border-white/15 bg-black/45 p-5 backdrop-blur md:p-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary">Arquibancada 12</p>
+              <h1 className="mt-2 font-heading text-4xl leading-[0.9] text-neon-glow text-foreground md:text-6xl">
+                Vista a paixão.
+              </h1>
+              <p className="mt-3 max-w-xl text-sm text-muted-foreground md:text-base">
+                Não é só camisa. É identidade de torcida com acabamento premium e presença de estádio.
+              </p>
+              <p className="mt-2 max-w-xl text-xs text-muted-foreground md:text-sm">
+                Selecionamos modelos com alto nível de fidelidade visual, tecido confortável e detalhes que fazem diferença no uso real.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link to="/produtos" className="gradient-primary rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+                  Ver Coleção
+                </Link>
+                <Link to="/produtos?cat=retro-tailandesas" className="rounded-lg border border-white/25 bg-black/20 px-5 py-2.5 text-sm text-foreground hover:border-primary">
+                  Explorar Retrô
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="border-y border-border bg-secondary/30">
-        <div className="container mx-auto grid grid-cols-2 gap-4 px-4 py-6 md:grid-cols-4">
+      <section className="border-y border-border bg-secondary/20 py-10">
+        <div className="container mx-auto grid grid-cols-2 gap-x-4 gap-y-6 px-4 md:grid-cols-4">
           {[
             { icon: Truck, label: "Envio para todo Brasil" },
-            { icon: ShieldCheck, label: "Qualidade Garantida" },
+            { icon: ShieldCheck, label: "Qualidade garantida" },
             { icon: Headphones, label: "Atendimento até 18h" },
-            { icon: CreditCard, label: "Parcelamos no Cartão" },
+            { icon: CreditCard, label: "Parcelamento facilitado no cartão" },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-              <Icon className="h-5 w-5 text-primary" />
-              <span>{label}</span>
+            <div
+              key={label}
+              className="glass-card flex items-center gap-3 rounded-xl px-4 py-5 shadow-md shadow-primary/10"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-medium text-foreground">{label}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="overflow-hidden border-y border-primary/30 bg-primary/10 py-3">
-        <motion.div
-          initial={{ x: "0%" }}
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          className="flex whitespace-nowrap text-sm font-semibold tracking-wider text-primary"
-        >
-          {Array.from({ length: 2 }).map((_, block) => (
-            <div key={block} className="mr-10 flex gap-8">
-              <span>TORCIDA NA ARQUIBANCADA</span>
-              <span>CAMISAS COM IDENTIDADE</span>
-              <span>PERSONALIZAÇÃO COM NOME</span>
-              <span>QUALIDADE PREMIUM</span>
-              <span>ENVIO PARA TODO O BRASIL</span>
-            </div>
-          ))}
-        </motion.div>
+      <section className="py-14">
+        <div className="container mx-auto px-4">
+          <h2 className="font-heading text-3xl text-foreground md:text-4xl">SOBRE A MARCA</h2>
+          <div className="mt-5 grid gap-4 text-sm leading-relaxed text-muted-foreground md:grid-cols-3">
+            <p className="glass-card rounded-xl p-4">
+              A Arquibancada 12 nasceu para quem vive o futebol além do campo.
+            </p>
+            <p className="glass-card rounded-xl p-4">
+              Aqui não trabalhamos com qualquer peça. Cada modelo é escolhido pelo padrão de acabamento, conforto e fidelidade aos detalhes originais.
+            </p>
+            <p className="glass-card rounded-xl p-4">
+              Nossa proposta é simples: oferecer camisas que representem a paixão do torcedor com qualidade e presença.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="bg-gradient-to-r from-black via-secondary/70 to-black py-10">
-        <div className="container mx-auto grid gap-4 px-4 md:grid-cols-4">
+      <section className="border-y border-primary/30 bg-primary/5 py-6">
+        <div className="container mx-auto flex flex-wrap items-center justify-center gap-3 px-4 text-sm font-semibold uppercase tracking-wide text-primary">
           {[
-            { icon: Shirt, title: "Personalização Real", text: "Nome e número com estampa de alta fixação." },
+            { icon: Shirt, label: "Torcida na arquibancada" },
+            { icon: Medal, label: "Camisas com identidade" },
+            { icon: Percent, label: "Personalização com nome" },
+            { icon: ShieldCheck, label: "Qualidade premium" },
+            { icon: Truck, label: "Envio para todo o Brasil" },
+          ].map(({ icon: Icon, label }) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-sm shadow-primary/10"
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-gradient-to-r from-black via-secondary/70 to-black py-12">
+        <div className="container mx-auto px-4 pb-6">
+          <h2 className="font-heading text-3xl text-foreground md:text-4xl">NOSSOS DIFERENCIAIS</h2>
+        </div>
+        <div className="container mx-auto grid gap-5 px-4 md:grid-cols-4">
+          {[
+            { icon: Shirt, title: "Personalização Profissional", text: "Nome e número aplicados com estampa de alta fixação e excelente durabilidade." },
             { icon: Clock3, title: "Despacho Ágil", text: "Separação rápida e rastreio por pedido." },
-            { icon: Percent, title: "Faixa de Preço Clara", text: "Valores sugeridos por categoria e time." },
-            { icon: Medal, title: "Padrão Premium", text: "Modelagens com foco em conforto de torcedor." },
+            { icon: Percent, title: "Transparência", text: "Faixa de preço clara por categoria, sem surpresas no final da compra." },
+            { icon: Medal, title: "Padrão Premium", text: "Modelagens confortáveis, tecido respirável e costura reforçada." },
           ].map(({ icon: Icon, title, text }) => (
-            <article key={title} className="rounded-xl border border-primary/20 bg-card/60 p-4 shadow-lg shadow-primary/10">
-              <Icon className="h-5 w-5 text-primary" />
-              <h3 className="mt-2 font-body text-sm font-semibold text-foreground">{title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{text}</p>
+            <article
+              key={title}
+              className="rounded-2xl border border-primary/30 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-primary/10 p-5 shadow-lg shadow-primary/20 backdrop-blur"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-3 font-body text-base font-semibold text-foreground">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
             </article>
           ))}
         </div>
@@ -111,10 +169,10 @@ const Index = () => {
           <div className="flex items-end justify-between">
             <h2 className="font-heading text-3xl text-foreground md:text-4xl">CATEGORIAS</h2>
             <Link to="/produtos" className="text-sm text-primary hover:underline">
-              Ver todas →
+              Ver todas as categorias
             </Link>
           </div>
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {topCategories.map((cat, i) => (
               <CategoryCard key={cat.id} category={cat} index={i} />
             ))}
@@ -137,18 +195,27 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="border-y border-primary/20 bg-gradient-to-r from-primary/10 via-background to-accent/10 py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="font-heading text-3xl text-foreground md:text-4xl">
-            🔥 FRETE FIXO A PARTIR DE <span className="text-primary">R$ 30</span>
-          </h2>
-          <p className="mt-2 text-muted-foreground">Entrega rápida e segura para todo o Brasil</p>
-          <Link
-            to="/frete"
-            className="mt-6 inline-block rounded-lg border border-primary px-6 py-2 font-heading text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-          >
-            VER TABELA DE FRETE
-          </Link>
+      <section className="py-14">
+        <div className="container mx-auto px-4">
+          <h2 className="font-heading text-3xl text-foreground md:text-4xl">SEÇÃO DE CONFIANÇA</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
+              Mais de 2.000 camisas enviadas para todo o Brasil.
+            </div>
+            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
+              Avaliação média de 4,9 baseada em feedbacks reais.
+            </div>
+            <div className="glass-card rounded-xl p-4 text-sm text-muted-foreground">
+              Grande parte dos clientes retorna para novas compras.
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            {["Compra protegida.", "Pagamento seguro.", "Rastreamento após envio.", "Suporte direto via WhatsApp."].map((item) => (
+              <div key={item} className="rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -161,13 +228,22 @@ const Index = () => {
             ]}
             className="rounded-2xl border border-border"
           />
+          <div className="mt-5 rounded-xl border border-border bg-card/50 p-5">
+            <h2 className="font-heading text-3xl text-foreground md:text-4xl">Deixe sua marca na arquibancada.</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Personalize sua camisa com nome e número aplicados com padrão profissional de fixação e durabilidade.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ideal para quem quer exclusividade sem abrir mão da qualidade.
+            </p>
+          </div>
         </div>
       </section>
 
       <section className="py-16">
         <div className="container mx-auto px-4">
           <h2 className="font-heading text-3xl text-foreground md:text-4xl">O QUE DIZEM NOSSOS CLIENTES</h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
             {testimonials.map((t, i) => (
               <motion.div
                 key={i}
@@ -187,6 +263,18 @@ const Index = () => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-secondary/20 py-14 text-center">
+        <div className="container mx-auto px-4">
+          <h2 className="font-heading text-4xl text-foreground md:text-6xl">Arquibancada 12</h2>
+          <p className="mt-2 text-lg text-primary">Paixão que transcende o campo.</p>
+          <p className="mt-5 text-sm text-muted-foreground md:text-base">
+            Vista o jogo. <br className="md:hidden" />
+            Represente sua história. <br className="md:hidden" />
+            Entre para a arquibancada.
+          </p>
         </div>
       </section>
 

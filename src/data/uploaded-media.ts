@@ -1,8 +1,8 @@
 export const uploadedCriativos = [
-  "/criativos/banner-2.png",
-  "/criativos/banner-camisas.png",
-  "/criativos/banner-nome.png",
-  "/criativos/banner.png",
+  "/criativos/fan-1.jpg",
+  "/criativos/fan-2.jpg",
+  "/criativos/fan-3.jpg",
+  "/criativos/fan-4.jpg",
   "/criativos/logo-fundobranco.png",
   "/criativos/logo-semfundo.png"
 ] as const;

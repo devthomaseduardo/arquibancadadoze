@@ -1,6 +1,23 @@
 import { prisma } from "../../shared/prisma.js";
 import { notFound } from "../../shared/errors.js";
 import type { Prisma } from "@prisma/client";
+import { sendMail } from "../../shared/email.js";
+
+async function sendOrderCreatedEmail(order: { orderNumber: string; customerEmail: string; customerName: string }) {
+  // Email nao pode quebrar criacao de pedido: erros sao tratados pelo caller.
+  await sendMail({
+    to: order.customerEmail,
+    subject: `Pedido recebido #${order.orderNumber} - Arquibancada 12`,
+    text: `Ola ${order.customerName}, recebemos seu pedido #${order.orderNumber}. Em breve voce recebera atualizacoes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Pedido recebido</h2>
+        <p style="margin: 0 0 8px;">Ola <strong>${order.customerName}</strong>, recebemos seu pedido <strong>#${order.orderNumber}</strong>.</p>
+        <p style="margin: 0;">Em breve voce recebera atualizacoes do despacho e rastreio.</p>
+      </div>
+    `,
+  });
+}
 
 export type OrderFilters = {
   dateFrom?: string; // ISO date
@@ -137,7 +154,11 @@ export async function createOrder(data: {
         include: { product: { include: { category: true } } }
       });
       if (!variant) {
-        throw new Error(`Estoque não encontrado para o produto ${item.productName} tamanho ${item.variation}`);
+        // Quando nao ha variantes cadastradas para o produto (seed/operacao sem controle de estoque),
+        // nao bloqueamos o checkout. Mantemos os dados enviados pelo frontend.
+        loadedItems.push(item);
+        if (accumulatedMinMargin === 0) accumulatedMinMargin = 20; // Default
+        continue;
       }
       if (variant.quantity < item.quantity) {
         throw new Error(`Estoque insuficiente para ${item.productName} tamanho ${item.variation}. Disponível: ${variant.quantity}`);
@@ -265,6 +286,17 @@ export async function createOrder(data: {
     });
     return order;
   });
+
+  try {
+    await sendOrderCreatedEmail({
+      orderNumber: result.orderNumber,
+      customerEmail: result.customerEmail,
+      customerName: result.customerName,
+    });
+  } catch (e) {
+    // Falha de email nao deve impedir checkout.
+    console.error("Falha ao enviar email de pedido criado:", e);
+  }
 
   return result;
 }

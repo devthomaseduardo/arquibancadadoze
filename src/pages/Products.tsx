@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 import { getCategories, getProducts } from "@/lib/api";
-import { getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreCategory, toStoreProduct } from "@/lib/store-mappers";
+import { getCatalogInfoByMediaPath, getTeamByMediaPath, getUploadedMediaForCategorySlug, toStoreCategory, toStoreProduct } from "@/lib/store-mappers";
 import { criativos } from "@/data/criativos";
 import BannerCarousel from "@/components/BannerCarousel";
 
@@ -31,6 +31,8 @@ const Products = () => {
       image,
       team: getTeamByMediaPath(image),
       badge: index === 0 ? baseProduct.badge : undefined,
+      name: getCatalogInfoByMediaPath(image)?.titulo || baseProduct.name,
+      categoryName: getCatalogInfoByMediaPath(image)?.categoria || baseProduct.categoryName,
     }));
   });
 
