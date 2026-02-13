@@ -5,8 +5,8 @@ import { criativos } from "../data/criativos";
 
 const Footer = () => {
   return (
-    <footer className="relative mt-20 overflow-hidden border-t-2 border-primary/40 bg-pitch-light">
-      <div className="container mx-auto relative px-6 py-16">
+    <footer className="relative mt-12 overflow-hidden border-t-2 border-primary/40 bg-pitch-light md:mt-16">
+      <div className="container mx-auto relative px-4 py-16">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="mb-4 inline-block rounded-full border border-primary/20 bg-pitch p-3">

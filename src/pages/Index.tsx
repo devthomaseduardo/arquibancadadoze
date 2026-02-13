@@ -42,7 +42,7 @@ const Index = () => {
   return (
     <Layout>
       <PromoBanner />
-      <section className="relative stadium-light bg-black py-3">
+      <section className="relative stadium-light bg-black py-0">
         <BannerCarousel
           images={[
             { src: criativos.bannerPrincipal, alt: "Arquibancada 12 - Vista a paixão pelo futebol" },
