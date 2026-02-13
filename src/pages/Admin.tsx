@@ -55,6 +55,35 @@ const logisticsColumns = [
   { key: "entregue", label: "Entregue", icon: CheckCircle2 },
 ] as const;
 
+const logisticsSlaHours: Record<string, number> = {
+  aguardando: 24,
+  em_separacao: 36,
+  enviado: 120,
+  entregue: Number.POSITIVE_INFINITY,
+};
+
+const getOrderAgeHours = (order: ApiOrder) => {
+  const createdAt = new Date(order.createdAt).getTime();
+  return Math.max(0, (Date.now() - createdAt) / (1000 * 60 * 60));
+};
+
+const getLogisticsPriority = (order: ApiOrder) => {
+  const slaHours = logisticsSlaHours[order.orderStatus] ?? 48;
+  if (!Number.isFinite(slaHours)) return "no_prazo" as const;
+  const ageHours = getOrderAgeHours(order);
+  if (ageHours > slaHours) return "atrasado" as const;
+  if (ageHours > slaHours * 0.7) return "atencao" as const;
+  return "no_prazo" as const;
+};
+
+const logisticsPriorityConfig = {
+  atrasado: { label: "Atrasado", className: "bg-red-500/20 text-red-400" },
+  atencao: { label: "Atenção", className: "bg-amber-500/20 text-amber-400" },
+  no_prazo: { label: "No prazo", className: "bg-green-500/20 text-green-400" },
+} as const;
+
+const logisticsPriorityOrder = { atrasado: 0, atencao: 1, no_prazo: 2 } as const;
+
 const Admin = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -69,6 +98,7 @@ const Admin = () => {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [logisticsSearch, setLogisticsSearch] = useState("");
   const [logisticsStatusFilter, setLogisticsStatusFilter] = useState<string>("todos");
+  const [logisticsPriorityFilter, setLogisticsPriorityFilter] = useState<"todos" | "atrasado" | "atencao" | "no_prazo">("todos");
   const [trackingDrafts, setTrackingDrafts] = useState<Record<string, string>>({});
   const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null);
   const [editingStatus, setEditingStatus] = useState<string>("");
@@ -124,12 +154,20 @@ const Admin = () => {
   const logisticsFiltered = useMemo(() => {
     let result = logisticsBase;
     if (logisticsStatusFilter !== "todos") result = result.filter((o) => o.orderStatus === logisticsStatusFilter);
+    if (logisticsPriorityFilter !== "todos") result = result.filter((o) => getLogisticsPriority(o) === logisticsPriorityFilter);
     if (logisticsSearch) {
       const q = logisticsSearch.toLowerCase();
       result = result.filter((o) => o.orderNumber.toLowerCase().includes(q) || o.customerName.toLowerCase().includes(q) || o.addressState.toLowerCase().includes(q));
     }
-    return result;
-  }, [logisticsBase, logisticsSearch, logisticsStatusFilter]);
+    return [...result].sort((a, b) => {
+      const priorityDiff = logisticsPriorityOrder[getLogisticsPriority(a)] - logisticsPriorityOrder[getLogisticsPriority(b)];
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  }, [logisticsBase, logisticsPriorityFilter, logisticsSearch, logisticsStatusFilter]);
+
+  const logisticsLateCount = useMemo(() => logisticsBase.filter((order) => getLogisticsPriority(order) === "atrasado").length, [logisticsBase]);
+  const logisticsAttentionCount = useMemo(() => logisticsBase.filter((order) => getLogisticsPriority(order) === "atencao").length, [logisticsBase]);
 
   const openDetail = (order: ApiOrder) => { setSelectedOrder(order); setEditingStatus(order.orderStatus); setEditingTracking(order.trackingCode || ""); };
   const saveOrderChanges = () => {
@@ -370,6 +408,20 @@ const Admin = () => {
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
+              <div className="relative">
+                <select value={logisticsPriorityFilter} onChange={(e) => setLogisticsPriorityFilter(e.target.value as "todos" | "atrasado" | "atencao" | "no_prazo")} className="appearance-none rounded-lg border border-border bg-card px-4 py-2 pr-10 text-sm text-foreground">
+                  <option value="todos">Todas prioridades</option>
+                  <option value="atrasado">Atrasado</option>
+                  <option value="atencao">Atenção</option>
+                  <option value="no_prazo">No prazo</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-medium text-red-400">Atrasados: {logisticsLateCount}</span>
+              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-400">Em atenção: {logisticsAttentionCount}</span>
             </div>
 
             {loadingOrders ? (
@@ -390,6 +442,16 @@ const Admin = () => {
                         {columnOrders.length === 0 && (<p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">Nenhum pedido nesta etapa.</p>)}
                         {columnOrders.map((order) => (
                           <article key={order.id} className="rounded-lg border border-border bg-secondary/30 p-3">
+                            {(() => {
+                              const priority = getLogisticsPriority(order);
+                              const ageHours = getOrderAgeHours(order);
+                              return (
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${logisticsPriorityConfig[priority].className}`}>{logisticsPriorityConfig[priority].label}</span>
+                                  <span className="text-[11px] text-muted-foreground">há {Math.floor(ageHours)}h</span>
+                                </div>
+                              );
+                            })()}
                             <div className="flex items-start justify-between gap-2">
                               <p className="text-sm font-semibold text-primary">#{order.orderNumber}</p>
                               <button onClick={() => copySupplierText(order)} disabled={copyingSupplierId === order.id} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50">
