@@ -20,3 +20,7 @@ export function badRequest(message = "Requisição inválida", code?: string) {
 export function unauthorized(message = "Não autorizado") {
   return new AppError(message, 401, "UNAUTHORIZED");
 }
+
+export function serviceUnavailable(message = "Serviço temporariamente indisponível", code?: string) {
+  return new AppError(message, 503, code ?? "SERVICE_UNAVAILABLE");
+}

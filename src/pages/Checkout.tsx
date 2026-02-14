@@ -145,9 +145,10 @@ const Checkout = () => {
                   <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-black border border-white/10">
                     <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-heading text-sm text-white line-clamp-1">{item.name}</p>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold mt-1">Tam: {item.size} • Qtd: {item.quantity}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold mt-1">Tam: {item.size} • Qtd: {item.quantity}{item.customName ? ` • Nr: ${item.customName}` : ""}</p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Tecido premium • Bordados 1:1</p>
                     <p className="text-primary font-fat mt-1">{formatCurrency(item.price * item.quantity)}</p>
                   </div>
                 </div>

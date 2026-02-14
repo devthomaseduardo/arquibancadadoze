@@ -31,12 +31,14 @@ model Product {
   id          String    @id @default(cuid())
   categoryId  String
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  supplierId  String?   // Fornecedor 1, Fornecedor 2 — só visível no admin; cliente não vê
+  supplier    Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   name        String
   slug        String    @unique
   description String?
-  costMin     Float
+  costMin     Float     // custo deste fornecedor
   costMax     Float
-  priceMin    Float     // preço revenda mínimo
+  priceMin    Float     // preço revenda mínimo (o que o cliente vê)
   priceMax    Float     // preço revenda máximo
   imageUrl    String?
   sizes       String   // JSON array: ["P","M","G","GG"] ou ["Único"]
@@ -86,6 +88,7 @@ model Order {
   customerName       String
   customerEmail      String
   customerPhone      String?
+  customerCpf        String?   // opcional
   // Endereço
   addressStreet      String
   addressNumber      String
@@ -111,7 +114,7 @@ model Order {
   shippedAt          DateTime?
   // Metadados
   notes              String?   // notas internas
-  source             String?   // nuvemshop, manual, etc.
+  source             String?   // site, shopee, ml, amazon, nuvemshop, manual (canal de venda)
   externalId         String?   // ID do pedido na Nuvemshop
   mercadopagoPaymentId String? // ID do pagamento no MP
   mercadopagoPreferenceId String? // ID da preferência (PIX/boleto)
@@ -132,21 +135,25 @@ model Order {
   items              OrderItem[]
   communications     OrderCommunication[]
   returns            ReturnExchange[]
+  events             OrderEvent[]
 }
 
 model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId  String?
-  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  productName String  // nome no momento da compra
-  variation  String?  // tamanho, cor (ex: "M", "Preta")
-  quantity   Int      @default(1)
-  unitPrice  Float    // preço de venda unitário
-  unitCost   Float?   // custo unitário fornecedor
-  lineTotal  Float    // quantity * unitPrice
-  lineCost   Float?   // quantity * unitCost
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName    String   // nome no momento da compra
+  variation      String?  // tamanho, cor (ex: "M", "Preta")
+  sku            String?  // SKU do fornecedor
+  quantity       Int      @default(1)
+  unitPrice      Float    // preço de venda unitário
+  unitCost       Float?   // custo unitário fornecedor
+  lineTotal      Float    // quantity * unitPrice
+  lineCost       Float?   // quantity * unitCost
+  personalization String? // número/nome na camisa
+  itemNotes      String?  // observações do item
 }
 
 model OrderCommunication {
@@ -158,17 +165,31 @@ model OrderCommunication {
   createdAt DateTime @default(now())
 }
 
-// ========== TROCAS E DEVOLUÇÕES ==========
+// Audit log: mudanças de status e campos do pedido
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  field     String   // orderStatus, paymentStatus, trackingCode, etc.
+  oldValue  String?
+  newValue  String?
+  userId    String?  // quem alterou (admin/sistema)
+  createdAt DateTime @default(now())
+}
+
+// ========== TROCAS E DEVOLUÇÕES (RMA) ==========
 
 model ReturnExchange {
-  id          String   @id @default(cuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  reason      String   // defeito_fabricacao, tamanho_errado, outro
-  status      String   // solicitado, aprovado, em_transito, concluido, recusado
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  orderId      String
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reason       String    // defeito_fabricacao, tamanho_errado, outro
+  status       String    // solicitado, aprovado, aguardando_envio_cliente, recebido, resolvido, negado
+  description  String?
+  deliveredAt  DateTime? // data entrega (para validar prazo 7 dias)
+  evidenceUrl  String?   // fotos/evidências
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 // ========== CONTEÚDO / CONFIGURAÇÃO ==========
@@ -191,6 +212,34 @@ model SiteConfig {
   id    String @id @default(cuid())
   key   String @unique
   value String // JSON para valores complexos
+}
+
+// Regras de precificação por canal (site, shopee, ml, amazon)
+model PricingConfig {
+  id                 String   @id @default(cuid())
+  channel            String   @unique // site, shopee, ml, amazon
+  taxaCanalPercent   Float    @default(0)   // ex: 0.18
+  taxaCanalFixa      Float    @default(0)   // R$
+  lucroMin           Float    @default(30)  // R$
+  lucroAlvo          Float    @default(50)  // R$
+  precoPsicologico   Boolean  @default(true) // termina em 9
+  metaVendasAlta     Int      @default(10)  // vendas em 7d para subir 5%
+  metaVendasBaixa    Int      @default(2)   // vendas em 7d para baixar 3%
+  ajusteUrgente     Float    @default(20)  // +R$ quando prejuízo
+  createdAt          DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Fornecedores (custo/preço por fornecedor; admin vê, cliente não)
+model Supplier {
+  id           String    @id @default(cuid())
+  name         String    // ex: Fornecedor 1, Fornecedor 2
+  whatsapp     String?
+  leadTimeDays Int?      // prazo típico em dias
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
 }
 
 // ========== FINANCEIRO & CAMPANHAS ==========

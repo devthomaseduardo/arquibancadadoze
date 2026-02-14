@@ -63,7 +63,15 @@ const Header = () => {
         <Link to="/" className="group flex items-center gap-3">
           <div className="relative h-10 w-10 md:h-12 md:w-12">
             <div className="absolute inset-0 rounded-full border-2 border-primary p-0.5 shadow-[0_0_10px_rgba(139,92,246,0.3)]">
-              <img src={criativos.logoSemFundo} alt="Logo" className="h-full w-full rounded-full object-cover" />
+              <img
+                src={criativos.logoSemFundo}
+                alt="Logo Arquibancada 12"
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.src.endsWith(".png")) el.src = "/favicon.ico";
+                }}
+              />
             </div>
           </div>
           <div className="hidden sm:block">

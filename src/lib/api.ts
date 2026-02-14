@@ -110,11 +110,14 @@ export type ApiOrderItem = {
   productId: string | null;
   productName: string;
   variation: string | null;
+  sku: string | null;
   quantity: number;
   unitPrice: number;
   unitCost: number | null;
   lineTotal: number;
   lineCost: number | null;
+  personalization: string | null;
+  itemNotes: string | null;
 };
 
 export type ApiOrder = {
@@ -124,6 +127,7 @@ export type ApiOrder = {
   customerName: string;
   customerEmail: string;
   customerPhone: string | null;
+  customerCpf: string | null;
   addressStreet: string;
   addressNumber: string;
   addressComplement: string | null;
@@ -134,14 +138,50 @@ export type ApiOrder = {
   paymentMethod: string;
   paymentStatus: string;
   orderStatus: string;
+  source: string | null; // canal: site, shopee, ml, amazon
+  subtotal?: number;
   shippingCost: number;
   shippingCostPaid: number | null;
   totalAmount: number;
   totalCost: number | null;
   estimatedProfit: number | null;
   trackingCode: string | null;
+  trackingUrl?: string | null;
   notes: string | null;
   items: ApiOrderItem[];
+};
+
+export type ApiOrderEvent = {
+  id: string;
+  orderId: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  userId: string | null;
+  createdAt: string;
+};
+
+export type ApiOrderCommunication = {
+  id: string;
+  orderId: string;
+  type: string;
+  content: string;
+  createdAt: string;
+};
+
+export type ApiReturnExchange = {
+  id: string;
+  orderId: string;
+  reason: string;
+  status: string;
+  description: string | null;
+  createdAt: string;
+};
+
+export type ApiOrderDetail = ApiOrder & {
+  communications?: ApiOrderCommunication[];
+  returns?: ApiReturnExchange[];
+  events?: ApiOrderEvent[];
 };
 
 export type ApiListOrdersResponse = {
@@ -401,8 +441,82 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
-export function getAdminOrders() {
-  return request<ApiListOrdersResponse>("/api/orders", { headers: adminHeaders() });
+export type AdminOrdersFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+  orderStatus?: string;
+  paymentStatus?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  orderNumber?: string;
+  orderId?: string;
+  channel?: string;
+  region?: string;
+  needsShipping?: boolean;
+  sort?: "recent" | "value_desc" | "profit_desc" | "pending";
+  limit?: number;
+  offset?: number;
+};
+
+export function getAdminOrders(filters?: AdminOrdersFilters) {
+  const params = new URLSearchParams();
+  if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+  if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+  if (filters?.orderStatus) params.set("orderStatus", filters.orderStatus);
+  if (filters?.paymentStatus) params.set("paymentStatus", filters.paymentStatus);
+  if (filters?.customerName) params.set("customerName", filters.customerName);
+  if (filters?.customerEmail) params.set("customerEmail", filters.customerEmail);
+  if (filters?.customerPhone) params.set("customerPhone", filters.customerPhone);
+  if (filters?.orderNumber) params.set("orderNumber", filters.orderNumber);
+  if (filters?.orderId) params.set("orderId", filters.orderId);
+  if (filters?.channel) params.set("channel", filters.channel);
+  if (filters?.region) params.set("region", filters.region);
+  if (filters?.needsShipping) params.set("needsShipping", "true");
+  if (filters?.sort) params.set("sort", filters.sort);
+  if (filters?.limit != null) params.set("limit", String(filters.limit));
+  if (filters?.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<ApiListOrdersResponse>(`/api/orders${suffix}`, { headers: adminHeaders() });
+}
+
+export function getAdminOrderDetail(id: string) {
+  return request<ApiOrderDetail>(`/api/orders/${id}`, { headers: adminHeaders() });
+}
+
+export function addAdminOrderCommunication(orderId: string, type: string, content: string) {
+  return request<ApiOrderCommunication>(`/api/orders/${orderId}/communications`, {
+    method: "POST",
+    headers: adminHeaders(),
+    body: JSON.stringify({ type, content }),
+  });
+}
+
+/** Baixa exportação de pedidos (CSV ou XLSX) com filtros por período; usa chave admin no header */
+export async function downloadAdminExportOrders(params: {
+  format: "csv" | "xlsx";
+  dateFrom?: string;
+  dateTo?: string;
+  orderStatus?: string;
+}) {
+  const search = new URLSearchParams({ format: params.format });
+  if (params.dateFrom) search.set("dateFrom", params.dateFrom);
+  if (params.dateTo) search.set("dateTo", params.dateTo);
+  if (params.orderStatus) search.set("orderStatus", params.orderStatus);
+  const url = `${API_BASE_URL}/api/admin/export/orders?${search.toString()}`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const adminKey = getRuntimeAdminKey();
+  if (adminKey) headers["x-admin-key"] = adminKey;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error("Falha ao exportar pedidos");
+  const blob = await res.blob();
+  const ext = params.format === "xlsx" ? "xlsx" : "csv";
+  const filename = `pedidos-torcida-urbana-${new Date().toISOString().slice(0, 10)}.${ext}`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 export function updateAdminOrder(
@@ -418,6 +532,32 @@ export function updateAdminOrder(
 
 export function getAdminSupplierText(orderId: string) {
   return request<{ text: string }>(`/api/orders/${orderId}/supplier-text`, { headers: adminHeaders() });
+}
+
+/** Produto com fornecedor e custo — só no admin (cliente não vê) */
+export type ApiAdminProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  costMin: number;
+  costMax: number;
+  priceMin: number;
+  priceMax: number;
+  imageUrl: string | null;
+  sizes: string;
+  active: boolean;
+  sortOrder: number;
+  category: { id: string; name: string; slug: string };
+  supplier: { id: string; name: string } | null;
+};
+
+export function getAdminProducts(filters?: { category?: string; active?: boolean }) {
+  const params = new URLSearchParams();
+  if (filters?.category) params.set("category", filters.category);
+  if (filters?.active === false) params.set("active", "false");
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<ApiAdminProduct[]>(`/api/admin/products${suffix}`, { headers: adminHeaders() });
 }
 
 export function getAdminSettings() {

@@ -25,6 +25,34 @@ export async function listProducts(filters?: { categorySlug?: string; activeOnly
   });
 }
 
+/** Lista produtos com fornecedor e custo — só para painel admin (cliente não vê fornecedor). */
+export async function listProductsForAdmin(filters?: { categorySlug?: string; activeOnly?: boolean }) {
+  const where: { active?: boolean; category?: { slug: string } } = {};
+  if (filters?.activeOnly !== false) where.active = true;
+  if (filters?.categorySlug) where.category = { slug: filters.categorySlug };
+
+  return prisma.product.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      costMin: true,
+      costMax: true,
+      priceMin: true,
+      priceMax: true,
+      imageUrl: true,
+      sizes: true,
+      active: true,
+      sortOrder: true,
+      category: { select: { id: true, name: true, slug: true } },
+      supplier: { select: { id: true, name: true } },
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+}
+
 export async function getProductBySlug(slug: string) {
   const product = await prisma.product.findUnique({
     where: { slug, active: true },
@@ -75,6 +103,7 @@ export async function getProductById(id: string) {
 
 export async function createProduct(data: {
   categoryId: string;
+  supplierId?: string | null;
   name: string;
   slug: string;
   description?: string;
@@ -92,6 +121,7 @@ export async function createProduct(data: {
   const product = await prisma.product.create({
     data: {
       ...productData,
+      supplierId: productData.supplierId ?? undefined,
       sizes: variants ? JSON.stringify(variants.map(v => v.size)) : (productData.sizes ? JSON.stringify(productData.sizes) : "[]"),
       variants: variants ? {
         create: variants.map(v => ({
@@ -101,7 +131,7 @@ export async function createProduct(data: {
         }))
       } : undefined
     },
-    include: { variants: true, category: true }
+    include: { variants: true, category: true, supplier: true }
   });
 
   return product;

@@ -20,6 +20,7 @@ import adminSettingsRoutes from "./modules/admin-settings/admin-settings.routes.
 import reportsRoutes from "./modules/reports/reports.routes.js";
 import adminEmailRoutes from "./modules/admin-email/admin-email.routes.js";
 import adminSeedRoutes from "./modules/admin-seed/admin-seed.routes.js";
+import adminProductsRoutes from "./modules/admin-products/admin-products.routes.js";
 
 const defaultOrigins = ["http://localhost:8080", "http://localhost:8081", "http://localhost:5173", "http://localhost:3000"];
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...env.FRONTEND_ORIGINS]));
@@ -81,6 +82,7 @@ app.use("/api/admin/settings", adminSettingsRoutes);
 app.use("/api/admin/reports", reportsRoutes);
 app.use("/api/admin/test-email", adminEmailRoutes);
 app.use("/api/admin/seed", adminSeedRoutes);
+app.use("/api/admin/products", adminProductsRoutes);
 
 app.get("/health", async (_req, res) => {
   try {

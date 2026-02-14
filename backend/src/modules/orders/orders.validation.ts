@@ -4,6 +4,7 @@ export const createOrderSchema = z.object({
   customerName: z.string().min(2),
   customerEmail: z.string().email(),
   customerPhone: z.string().optional(),
+  customerCpf: z.string().optional(),
   addressStreet: z.string().min(2),
   addressNumber: z.string().min(1),
   addressComplement: z.string().optional(),
@@ -19,9 +20,12 @@ export const createOrderSchema = z.object({
       productId: z.string().optional(),
       productName: z.string().min(1),
       variation: z.string().optional(),
+      sku: z.string().optional(),
       quantity: z.number().int().positive(),
       unitPrice: z.number().nonnegative(),
       unitCost: z.number().nonnegative().optional(),
+      personalization: z.string().optional(), // número/nome na camisa
+      itemNotes: z.string().optional(),
     })
   ).min(1),
   shippingCost: z.number().nonnegative(),

@@ -161,7 +161,6 @@ const CartSidebar = () => {
 
                 <Link
                   to="/checkout"
-                  onClick={() => setCartOpen(false)}
                   className="gradient-primary mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-heading text-lg text-primary-foreground neon-glow disabled:opacity-50"
                   aria-disabled={items.length === 0}
                   onClick={(e) => {

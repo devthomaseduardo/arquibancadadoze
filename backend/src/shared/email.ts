@@ -10,29 +10,31 @@ type SendMailInput = {
 
 let cachedTransport: nodemailer.Transporter | null = null;
 
-function getTransport() {
+export function isEmailConfigured(): boolean {
+  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.EMAIL_FROM);
+}
+
+function getTransport(): nodemailer.Transporter | null {
   if (cachedTransport) return cachedTransport;
-
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-    throw new Error("SMTP nao configurado (SMTP_HOST/SMTP_USER/SMTP_PASS).");
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS || !env.EMAIL_FROM) {
+    return null;
   }
-
   cachedTransport = nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
   });
-
   return cachedTransport;
 }
 
+/** Envia e-mail. Se SMTP não estiver configurado, não faz nada (evita quebrar o app). */
 export async function sendMail(input: SendMailInput) {
-  if (!env.EMAIL_FROM) {
-    throw new Error("EMAIL_FROM nao configurado.");
-  }
-
   const transport = getTransport();
+  if (!transport || !env.EMAIL_FROM) {
+    console.warn("[email] SMTP não configurado (EMAIL_FROM, SMTP_HOST, SMTP_USER, SMTP_PASS). E-mail não enviado.");
+    return { messageId: "", accepted: [] };
+  }
   return transport.sendMail({
     from: env.EMAIL_FROM,
     to: input.to,

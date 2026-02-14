@@ -4,6 +4,8 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => ({
+  // Arquivos estáticos: coloque favicon, produtos, banner e criativos em src/public/
+  publicDir: "src/public",
   server: {
     host: "::",
     port: 8080,
@@ -12,11 +14,11 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: `http://localhost:${process.env.VITE_API_PORT ?? 3000}`,
         changeOrigin: true,
       },
       "/health": {
-        target: "http://localhost:3000",
+        target: `http://localhost:${process.env.VITE_API_PORT ?? 3000}`,
         changeOrigin: true,
       },
     },

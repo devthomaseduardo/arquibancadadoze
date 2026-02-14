@@ -2,6 +2,11 @@ import { env } from "../../config/env.js";
 
 const MP_BASE = "https://api.mercadopago.com";
 
+/** Indica se o Mercado Pago está configurado (permite retornar 503 em vez de 500 nas rotas). */
+export function isMercadoPagoConfigured(): boolean {
+  return Boolean(env.MERCADOPAGO_ACCESS_TOKEN?.trim());
+}
+
 function getHeaders() {
   const token = env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) throw new Error("MERCADOPAGO_ACCESS_TOKEN não configurado.");

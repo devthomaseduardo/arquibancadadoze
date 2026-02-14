@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as mpService from "./mercadopago.service.js";
 import { prisma } from "../../shared/prisma.js";
-import { badRequest } from "../../shared/errors.js";
+import { badRequest, serviceUnavailable } from "../../shared/errors.js";
 import { adminAuth } from "../../shared/middlewares.js";
 import { env } from "../../config/env.js";
 import * as ordersService from "../orders/orders.service.js";
@@ -28,6 +28,9 @@ router.get("/mercadopago/public-key", (_req, res) => {
 /** Cria preferência no Mercado Pago (PIX, boleto, etc.) e retorna link de pagamento. */
 router.post("/mercadopago/preference", async (req, res, next) => {
   try {
+    if (!mpService.isMercadoPagoConfigured()) {
+      return next(serviceUnavailable("Pagamento temporariamente indisponível. Configure MERCADOPAGO_ACCESS_TOKEN no .env do backend."));
+    }
     const { orderId, backUrlSuccess, backUrlFailure, backUrlPending } = req.body;
     if (!orderId) throw badRequest("orderId é obrigatório.");
 
@@ -85,7 +88,9 @@ router.post("/mercadopago/demo-preference", adminAuth, async (req, res, next) =>
     if (env.NODE_ENV === "production") {
       throw badRequest("Endpoint demo indisponível em produção.");
     }
-
+    if (!mpService.isMercadoPagoConfigured()) {
+      return next(serviceUnavailable("Configure MERCADOPAGO_ACCESS_TOKEN no .env do backend."));
+    }
     const { itemTitle, unitPrice, quantity, customerEmail, customerName, backUrlSuccess, backUrlFailure, backUrlPending } =
       req.body ?? {};
 
@@ -129,7 +134,9 @@ router.post("/mercadopago/demo", adminAuth, async (req, res, next) => {
     if (env.NODE_ENV === "production") {
       throw badRequest("Endpoint demo indisponível em produção.");
     }
-
+    if (!mpService.isMercadoPagoConfigured()) {
+      return next(serviceUnavailable("Configure MERCADOPAGO_ACCESS_TOKEN no .env do backend."));
+    }
     const {
       customerEmail,
       customerName,
@@ -206,6 +213,9 @@ router.post("/mercadopago/demo", adminAuth, async (req, res, next) => {
  */
 router.post("/mercadopago/webhook", async (req, res, next) => {
   try {
+    if (!mpService.isMercadoPagoConfigured()) {
+      return res.status(200).json({ received: true });
+    }
     const body = req.body as { type?: string; data?: { id?: string | number } };
     const idFromBody = body?.data?.id ? String(body.data.id) : null;
     const idFromQuery = req.query["data.id"] ? String(req.query["data.id"]) : null;
@@ -248,6 +258,9 @@ router.post("/mercadopago/webhook", async (req, res, next) => {
 /** Processa pagamento com cartão (token do frontend). */
 router.post("/mercadopago/card", async (req, res, next) => {
   try {
+    if (!mpService.isMercadoPagoConfigured()) {
+      return next(serviceUnavailable("Pagamento temporariamente indisponível. Configure MERCADOPAGO_ACCESS_TOKEN no .env do backend."));
+    }
     const { orderId, token, paymentMethodId, installments } = req.body;
     if (!orderId || !token || !paymentMethodId) {
       throw badRequest("orderId, token e paymentMethodId são obrigatórios.");
@@ -325,6 +338,9 @@ const transparentSchema = z.object({
 
 router.post("/mercadopago/transparent", async (req, res, next) => {
   try {
+    if (!mpService.isMercadoPagoConfigured()) {
+      return next(serviceUnavailable("Pagamento temporariamente indisponível. Configure MERCADOPAGO_ACCESS_TOKEN no .env do backend."));
+    }
     const parsed = transparentSchema.safeParse(req.body);
     if (!parsed.success) {
       const msg = parsed.error.errors.map((e) => e.message).join("; ");

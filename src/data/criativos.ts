@@ -1,3 +1,5 @@
+// Logo = favicon (coloque favicon.png ou favicon.ico em src/public/)
+// Banner e imagens: src/public/banner/, src/public/produtos/, src/public/criativos/
 export const criativos = {
   bannerPrincipal: "/banner/banner-camisas-1.png",
   bannerSecundario: "/banner/banner-camisas-2.png",

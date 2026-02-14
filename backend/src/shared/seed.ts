@@ -9,6 +9,23 @@ const TEST_USER = {
   name: "Administrador Torcida Urbana",
 };
 
+/** Primeira imagem de cada categoria - paths em src/public/Produtos (frontend) */
+const CATEGORY_IMAGE_URL: Record<string, string> = {
+  "camisas-tailandesas-torcedor": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_3565.jpg",
+  "tailandesa-torcedor-g1": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_0823.jpg",
+  "tailandesa-torcedor-g4": "/Produtos/TAILANDESA%201.1%20TORCEDOR/feminino/IMG_9382.jpg",
+  "conjuntos-infantis-tailandeses": "/Produtos/TAILANDESA%201.1%20TORCEDOR/feminino/IMG_1675.jpg",
+  "retro-tailandesas": "/Produtos/TAILANDESA%20RETR%C3%94/IMG_3785.jpg",
+  "camisas-nacionais-premium": "/Produtos/BRASILEIR%C3%83O%20%F0%9F%87%A7%F0%9F%87%B7/Flamengo%20%E2%9A%AB%F0%9F%94%94/01-%202025.jpg",
+  "camisetas-estampa-dtf": "/Produtos/BRASILEIR%C3%83O%20%F0%9F%87%A7%F0%9F%87%B7/Corinthians%20%F0%9F%A6%85/2024.jpg",
+  "bones-premium": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_5061.jpg",
+  "modelos-jogador-tailandeses": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_7266.jpg",
+  "conjuntos-agasalho-tailandeses": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_5640.jpg",
+  "mangas-longas-tailandesas": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_1116.jpg",
+  "kits-treino-tailandeses": "/Produtos/TAILANDESA%201.1%20TORCEDOR/feminino/IMG_1344.jpg",
+  "corta-vento-tailandeses": "/Produtos/TAILANDESA%201.1%20TORCEDOR/masculino/IMG_2997.jpg",
+};
+
 const CATEGORIES = [
   {
     name: "Camisas Tailandesas Torcedor",
@@ -207,10 +224,24 @@ const SALE_PRICE_BY_SLUG: Record<string, { min: number; max: number }> = {
   "corta-vento-tailandeses": { min: 250, max: 350 },
 };
 
+const SUPPLIERS = [
+  { name: "Fornecedor 1", leadTimeDays: 5 },
+  { name: "Fornecedor 2", leadTimeDays: 7 },
+];
+
 export async function runSeed() {
   console.log("Seed Torcida Urbana...");
 
+  let supplier1Id: string | null = null;
+  for (const s of SUPPLIERS) {
+    let sup = await prisma.supplier.findFirst({ where: { name: s.name } });
+    if (!sup) sup = await prisma.supplier.create({ data: { name: s.name, leadTimeDays: s.leadTimeDays } });
+    else await prisma.supplier.update({ where: { id: sup.id }, data: { leadTimeDays: s.leadTimeDays } });
+    if (s.name === "Fornecedor 1") supplier1Id = sup.id;
+  }
+
   for (const c of CATEGORIES) {
+    const imageUrl = CATEGORY_IMAGE_URL[c.slug] ?? null;
     const cat = await prisma.category.upsert({
       where: { slug: c.slug },
       create: {
@@ -220,6 +251,7 @@ export async function runSeed() {
         costMin: c.costMin,
         costMax: c.costMax,
         sortOrder: c.sortOrder,
+        imageUrl,
       },
       update: {
         name: c.name,
@@ -227,6 +259,7 @@ export async function runSeed() {
         costMin: c.costMin,
         costMax: c.costMax,
         sortOrder: c.sortOrder,
+        imageUrl,
       },
     });
 
@@ -241,10 +274,12 @@ export async function runSeed() {
     const baseProductName = c.name.replace("Tailandesas", "Premium");
     const productSlug = `${c.slug}-modelo-01`;
 
+    const productImageUrl = CATEGORY_IMAGE_URL[c.slug] ?? null;
     await prisma.product.upsert({
       where: { slug: productSlug },
       create: {
         categoryId: cat.id,
+        supplierId: supplier1Id ?? undefined,
         name: `${baseProductName} - Modelo 01`,
         slug: productSlug,
         description: c.description,
@@ -255,8 +290,10 @@ export async function runSeed() {
         sizes: JSON.stringify(sizes),
         active: true,
         sortOrder: 1,
+        imageUrl: productImageUrl,
       },
       update: {
+        supplierId: supplier1Id ?? undefined,
         name: `${baseProductName} - Modelo 01`,
         description: c.description,
         costMin: c.costMin,
@@ -266,6 +303,7 @@ export async function runSeed() {
         sizes: JSON.stringify(sizes),
         active: true,
         sortOrder: 1,
+        imageUrl: productImageUrl,
       },
     });
   }
@@ -311,6 +349,202 @@ export async function runSeed() {
       role: "ADMIN",
     },
   });
+
+  // Chave admin: use "torcida-urbana-admin-secret" no painel (deve estar em ADMIN_API_KEY no .env)
+  await prisma.siteConfig.upsert({
+    where: { key: "admin_api_key" },
+    create: { key: "admin_api_key", value: "torcida-urbana-admin-secret" },
+    update: { value: "torcida-urbana-admin-secret" },
+  });
+
+  // PricingConfig padrão (canal site)
+  await prisma.pricingConfig.upsert({
+    where: { channel: "site" },
+    create: {
+      channel: "site",
+      taxaCanalPercent: 0,
+      taxaCanalFixa: 0,
+      lucroMin: 30,
+      lucroAlvo: 50,
+      precoPsicologico: true,
+      metaVendasAlta: 10,
+      metaVendasBaixa: 2,
+      ajusteUrgente: 20,
+    },
+    update: {},
+  });
+
+  // Fornecedor demo
+  const existingSupplier = await prisma.supplier.findFirst({ where: { name: "Fornecedor Principal" } });
+  if (!existingSupplier) {
+    await prisma.supplier.create({
+      data: { name: "Fornecedor Principal", whatsapp: "5511999999999", leadTimeDays: 3, active: true },
+    });
+  }
+
+  // Pedidos demo (sempre adiciona 5 para testes)
+    const products = await prisma.product.findMany({ take: 5, include: { category: true } });
+    if (products.length > 0) {
+      const DEMO_ORDERS = [
+        {
+          customerName: "João Silva",
+          customerEmail: "joao@email.com",
+          customerPhone: "11987654321",
+          customerCpf: "123.456.789-00",
+          addressStreet: "Rua das Flores",
+          addressNumber: "123",
+          addressComplement: "Apto 45",
+          addressNeighborhood: "Centro",
+          addressCity: "São Paulo",
+          addressState: "SP",
+          addressZip: "01310100",
+          paymentMethod: "pix",
+          paymentStatus: "aprovado",
+          orderStatus: "aguardando",
+          source: "site",
+          subtotal: 265,
+          shippingCost: 35,
+          shippingCostPaid: 30,
+          totalAmount: 300,
+          totalCost: 165,
+          estimatedProfit: 135,
+        },
+        {
+          customerName: "Maria Santos",
+          customerEmail: "maria@email.com",
+          customerPhone: "21976543210",
+          addressStreet: "Av. Brasil",
+          addressNumber: "500",
+          addressCity: "Rio de Janeiro",
+          addressState: "RJ",
+          addressZip: "20040020",
+          paymentMethod: "cartao",
+          paymentStatus: "aprovado",
+          orderStatus: "em_separacao",
+          source: "site",
+          subtotal: 430,
+          shippingCost: 35,
+          totalAmount: 465,
+          totalCost: 280,
+          estimatedProfit: 185,
+        },
+        {
+          customerName: "Pedro Oliveira",
+          customerEmail: "pedro@email.com",
+          addressStreet: "Rua XV",
+          addressNumber: "100",
+          addressCity: "Curitiba",
+          addressState: "PR",
+          addressZip: "80020000",
+          paymentMethod: "boleto",
+          paymentStatus: "pendente",
+          orderStatus: "aguardando",
+          source: "shopee",
+          subtotal: 150,
+          shippingCost: 45,
+          totalAmount: 195,
+          totalCost: 95,
+          estimatedProfit: 100,
+        },
+        {
+          customerName: "Ana Costa",
+          customerEmail: "ana@email.com",
+          customerPhone: "31999887766",
+          addressStreet: "Av. Afonso Pena",
+          addressNumber: "1500",
+          addressCity: "Belo Horizonte",
+          addressState: "MG",
+          addressZip: "30130002",
+          paymentMethod: "pix",
+          paymentStatus: "aprovado",
+          orderStatus: "enviado",
+          source: "site",
+          trackingCode: "BR123456789BR",
+          trackingUrl: "https://rastreio.correios.com.br",
+          subtotal: 520,
+          shippingCost: 40,
+          shippingCostPaid: 35,
+          totalAmount: 560,
+          totalCost: 320,
+          estimatedProfit: 240,
+        },
+        {
+          customerName: "Carlos Lima",
+          customerEmail: "carlos@email.com",
+          addressStreet: "Rua da Praia",
+          addressNumber: "88",
+          addressCity: "Fortaleza",
+          addressState: "CE",
+          addressZip: "60165100",
+          paymentMethod: "cartao",
+          paymentStatus: "aprovado",
+          orderStatus: "entregue",
+          source: "ml",
+          subtotal: 180,
+          shippingCost: 45,
+          totalAmount: 225,
+          totalCost: 120,
+          estimatedProfit: 105,
+        },
+      ];
+
+      const lastOrder = await prisma.order.findFirst({ orderBy: { createdAt: "desc" }, select: { orderNumber: true } });
+      const startNum = lastOrder ? parseInt(lastOrder.orderNumber.replace(/\D/g, ""), 10) + 1 : 1001;
+
+      for (let i = 0; i < DEMO_ORDERS.length; i++) {
+        const o = DEMO_ORDERS[i];
+        const prod = products[i % products.length];
+        const unitPrice = prod.priceMin + (prod.priceMax - prod.priceMin) * 0.5;
+        const unitCost = prod.costMin;
+        const qty = i === 1 ? 2 : 1;
+        await prisma.order.create({
+          data: {
+            orderNumber: String(startNum + i),
+            customerName: o.customerName,
+            customerEmail: o.customerEmail,
+            customerPhone: o.customerPhone ?? null,
+            customerCpf: o.customerCpf ?? null,
+            addressStreet: o.addressStreet,
+            addressNumber: o.addressNumber,
+            addressComplement: o.addressComplement ?? null,
+            addressNeighborhood: o.addressNeighborhood ?? null,
+            addressCity: o.addressCity,
+            addressState: o.addressState,
+            addressZip: o.addressZip,
+            subtotal: o.subtotal,
+            shippingCost: o.shippingCost,
+            shippingCostPaid: o.shippingCostPaid ?? null,
+            totalAmount: o.totalAmount,
+            totalCost: o.totalCost,
+            estimatedProfit: o.estimatedProfit,
+            paymentMethod: o.paymentMethod,
+            paymentStatus: o.paymentStatus,
+            orderStatus: o.orderStatus,
+            source: o.source,
+            trackingCode: o.trackingCode ?? null,
+            trackingUrl: o.trackingUrl ?? null,
+            items: {
+              create: [
+                {
+                  productId: prod.id,
+                  productName: prod.name,
+                  variation: i % 2 === 0 ? "M" : "G",
+                  sku: `SKU-${prod.slug.slice(0, 8)}`,
+                  quantity: qty,
+                  unitPrice,
+                  unitCost,
+                  lineTotal: unitPrice * qty,
+                  lineCost: unitCost * qty,
+                  personalization: i % 3 === 0 ? "10" : i % 3 === 1 ? "Neymar Jr" : null,
+                  itemNotes: i === 2 ? "Cliente pediu embalagem de presente" : null,
+                },
+              ],
+            },
+          },
+        });
+      }
+      console.log("Pedidos demo criados.");
+    }
 
   console.log("Seed concluído.");
 }

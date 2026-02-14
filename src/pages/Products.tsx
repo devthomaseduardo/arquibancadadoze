@@ -1,18 +1,17 @@
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "../components/Layout";
 import ProductCard from "../components/ProductCard";
 import { getCategories, getProducts } from "../lib/api";
-import { toStoreCategory, toStoreProduct } from "../lib/store-mappers";
-import { criativos } from "../data/criativos";
-import BannerCarousel from "../components/BannerCarousel";
-
+import { toStoreCategory, toStoreProduct, getCategoryGalleryProducts } from "../lib/store-mappers";
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedCat = searchParams.get("cat") || "todos";
-  const [search, setSearch] = useState("");
+  const buscaFromUrl = searchParams.get("busca") || "";
+  const [search, setSearch] = useState(() => searchParams.get("busca") || "");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Efeito para gerenciar o debounce da busca
@@ -26,6 +25,10 @@ const Products = () => {
     };
   }, [search]);
 
+  useEffect(() => {
+    if (buscaFromUrl) setSearch(buscaFromUrl);
+  }, [buscaFromUrl]);
+
   const { data: rawCategories = [] } = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const { data: rawProducts = [], isLoading, isError } = useQuery({
     queryKey: ["products", selectedCat],
@@ -33,7 +36,18 @@ const Products = () => {
   });
 
   const categories = rawCategories.map(toStoreCategory);
-  const products = rawProducts.map(toStoreProduct);
+  const apiProducts = rawProducts.map(toStoreProduct);
+  const currentCategory = categories.find((c) => c.slug === selectedCat);
+
+  const products = useMemo(() => {
+    const gallery = getCategoryGalleryProducts(
+      selectedCat,
+      currentCategory?.name ?? "",
+      apiProducts[0] ?? null,
+    );
+    if (gallery.length) return gallery;
+    return apiProducts;
+  }, [selectedCat, currentCategory?.name, apiProducts]);
 
   const filtered = useMemo(() => {
     let list = products;
@@ -46,34 +60,34 @@ const Products = () => {
     return list;
   }, [products, debouncedSearch]);
 
-  const currentCategory = categories.find((c) => c.slug === selectedCat);
+  const isCategoryPage = selectedCat !== "todos";
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 overflow-hidden rounded-2xl border border-zinc-800">
-          <BannerCarousel
-            images={[
-              { src: criativos.bannerCamisas, alt: "Catálogo de camisas" },
-              { src: criativos.bannerPrincipal, alt: "Ofertas da torcida" },
-            ]}
-            className="rounded-2xl"
-          />
+        <div className="flex flex-col gap-2">
+          {isCategoryPage && (
+            <Link
+              to="/produtos"
+              className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-primary transition-colors w-fit"
+            >
+              <ChevronLeft className="h-4 w-4" /> Ver todas as categorias
+            </Link>
+          )}
+          <h1 className="font-heading text-3xl md:text-5xl text-white font-bold tracking-tight">
+            {currentCategory ? currentCategory.name : "Todos os produtos"}
+          </h1>
+          {currentCategory && <p className="mt-2 text-sm text-zinc-400 max-w-2xl">{currentCategory.description}</p>}
         </div>
 
-        <h1 className="font-heading text-4xl text-white">
-          {currentCategory ? currentCategory.name : "TODOS OS PRODUTOS"}
-        </h1>
-        {currentCategory && <p className="mt-2 text-sm text-zinc-400">{currentCategory.description}</p>}
-
-        <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="relative w-full md:max-w-xs">
+        <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-sm">
             <input
               type="text"
-              placeholder="Buscar produto ou time..."
+              placeholder={isCategoryPage ? "Buscar nesta categoria (time ou nome)..." : "Buscar produto ou time..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
             {search !== debouncedSearch && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -81,32 +95,21 @@ const Products = () => {
               </div>
             )}
           </div>
-          
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSearchParams({})}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                selectedCat === "todos"
-                  ? "bg-primary text-white"
-                  : "border border-zinc-800 text-zinc-400 hover:border-primary hover:text-primary"
-              }`}
-            >
-              Todos
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.slug}
-                onClick={() => setSearchParams({ cat: cat.slug })}
-                className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  selectedCat === cat.slug
-                    ? "bg-primary text-white"
-                    : "border border-zinc-800 text-zinc-400 hover:border-primary hover:text-primary"
-                }`}
+          {!isCategoryPage && (
+            <div className="relative">
+              <select
+                value={selectedCat}
+                onChange={(e) => setSearchParams(e.target.value === "todos" ? {} : { cat: e.target.value })}
+                className="appearance-none rounded-xl border border-white/10 bg-zinc-900/80 px-5 py-3 pr-10 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all cursor-pointer"
               >
-                {cat.name}
-              </button>
-            ))}
-          </div>
+                <option value="todos">Todas categorias</option>
+                {categories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>{cat.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            </div>
+          )}
         </div>
 
         {isLoading && (
@@ -119,7 +122,7 @@ const Products = () => {
         {isError && <p className="mt-8 text-sm text-red-500">Não foi possível carregar os produtos.</p>}
 
         {!isLoading && !isError && (
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-5 md:gap-6 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}

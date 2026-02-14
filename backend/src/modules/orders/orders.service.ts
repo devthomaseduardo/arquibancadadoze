@@ -20,13 +20,19 @@ async function sendOrderCreatedEmail(order: { orderNumber: string; customerEmail
 }
 
 export type OrderFilters = {
-  dateFrom?: string; // ISO date
+  dateFrom?: string;
   dateTo?: string;
   orderStatus?: string;
   paymentStatus?: string;
   customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   orderNumber?: string;
   orderId?: string;
+  channel?: string;   // source: site, shopee, ml, amazon
+  region?: string;   // UF (addressState)
+  needsShipping?: boolean; // status !== entregue && paymentStatus === aprovado
+  sort?: "recent" | "value_desc" | "profit_desc" | "pending";
 };
 
 export async function listOrders(filters: OrderFilters = {}, limit = 100, offset = 0) {
@@ -39,13 +45,26 @@ export async function listOrders(filters: OrderFilters = {}, limit = 100, offset
   }
   if (filters.orderStatus) where.orderStatus = filters.orderStatus;
   if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
-  if (filters.customerName) {
-    where.customerName = { contains: filters.customerName };
-  }
-  if (filters.orderNumber) {
-    where.orderNumber = { contains: filters.orderNumber };
-  }
+  if (filters.channel) where.source = filters.channel;
+  if (filters.region) where.addressState = filters.region;
+  if (filters.customerName) where.customerName = { contains: filters.customerName, mode: "insensitive" };
+  if (filters.customerEmail) where.customerEmail = { contains: filters.customerEmail, mode: "insensitive" };
+  if (filters.customerPhone) where.customerPhone = { contains: filters.customerPhone };
+  if (filters.orderNumber) where.orderNumber = { contains: filters.orderNumber };
   if (filters.orderId) where.id = filters.orderId;
+  if (filters.needsShipping) {
+    where.orderStatus = { not: "entregue" };
+    where.paymentStatus = "aprovado";
+  }
+
+  const orderBy: Prisma.OrderOrderByWithRelationInput[] = (() => {
+    switch (filters.sort) {
+      case "value_desc": return [{ totalAmount: "desc" }, { createdAt: "desc" }];
+      case "profit_desc": return [{ estimatedProfit: "desc" }, { createdAt: "desc" }];
+      case "pending": return [{ orderStatus: "asc" }, { createdAt: "asc" }];
+      default: return [{ createdAt: "desc" }];
+    }
+  })();
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
@@ -54,7 +73,7 @@ export async function listOrders(filters: OrderFilters = {}, limit = 100, offset
         items: true,
         returns: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       take: limit,
       skip: offset,
     }),
@@ -71,6 +90,7 @@ export async function getOrderById(id: string) {
       items: true,
       communications: { orderBy: { createdAt: "desc" } },
       returns: true,
+      events: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!order) throw notFound("Pedido não encontrado");
@@ -102,6 +122,7 @@ export async function createOrder(data: {
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
+  customerCpf?: string;
   addressStreet: string;
   addressNumber: string;
   addressComplement?: string;
@@ -116,9 +137,12 @@ export async function createOrder(data: {
     productId?: string;
     productName: string;
     variation?: string;
+    sku?: string;
     quantity: number;
     unitPrice: number;
     unitCost?: number;
+    personalization?: string;
+    itemNotes?: string;
   }>;
   shippingCost: number;
   shippingCostPaid?: number;
@@ -239,6 +263,7 @@ export async function createOrder(data: {
         customerName: data.customerName,
         customerEmail: data.customerEmail,
         customerPhone: data.customerPhone,
+        customerCpf: data.customerCpf,
         addressStreet: data.addressStreet,
         addressNumber: data.addressNumber,
         addressComplement: data.addressComplement,
@@ -270,15 +295,18 @@ export async function createOrder(data: {
         mercadopagoPaymentId: data.mercadopagoPaymentId,
         mercadopagoPreferenceId: data.mercadopagoPreferenceId,
         items: {
-          create: loadedItems.map((i) => ({
+          create: loadedItems.map((i: { productId?: string; productName: string; variation?: string; sku?: string; quantity: number; unitPrice: number; unitCost?: number; personalization?: string; itemNotes?: string }) => ({
             productId: i.productId,
             productName: i.productName,
             variation: i.variation,
+            sku: i.sku,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
             unitCost: i.unitCost,
             lineTotal: i.quantity * i.unitPrice,
             lineCost: i.unitCost != null ? i.quantity * i.unitCost : null,
+            personalization: i.personalization,
+            itemNotes: i.itemNotes,
           })),
         },
       },
@@ -303,19 +331,40 @@ export async function createOrder(data: {
 
 export async function updateOrderStatus(
   id: string,
-  updates: { orderStatus?: string; paymentStatus?: string; trackingCode?: string; trackingUrl?: string; notes?: string; shippedAt?: Date }
+  updates: { orderStatus?: string; paymentStatus?: string; trackingCode?: string; trackingUrl?: string; notes?: string; shippedAt?: Date },
+  userId?: string
 ) {
-  const order = await prisma.order.update({
-    where: { id },
-    data: {
-      ...(updates.orderStatus != null && { orderStatus: updates.orderStatus }),
-      ...(updates.paymentStatus != null && { paymentStatus: updates.paymentStatus }),
-      ...(updates.trackingCode != null && { trackingCode: updates.trackingCode }),
-      ...(updates.trackingUrl != null && { trackingUrl: updates.trackingUrl }),
-      ...(updates.notes != null && { notes: updates.notes }),
-      ...(updates.shippedAt != null && { shippedAt: updates.shippedAt }),
-    },
-    include: { items: true, communications: true, returns: true },
+  const before = await prisma.order.findUnique({ where: { id }, select: { orderStatus: true, paymentStatus: true, trackingCode: true, trackingUrl: true, notes: true, shippedAt: true } });
+  if (!before) throw notFound("Pedido não encontrado");
+
+  const order = await prisma.$transaction(async (tx) => {
+    const updated = await tx.order.update({
+      where: { id },
+      data: {
+        ...(updates.orderStatus != null && { orderStatus: updates.orderStatus }),
+        ...(updates.paymentStatus != null && { paymentStatus: updates.paymentStatus }),
+        ...(updates.trackingCode != null && { trackingCode: updates.trackingCode }),
+        ...(updates.trackingUrl != null && { trackingUrl: updates.trackingUrl }),
+        ...(updates.notes != null && { notes: updates.notes }),
+        ...(updates.shippedAt != null && { shippedAt: updates.shippedAt }),
+      },
+      include: { items: true, communications: true, returns: true, events: true },
+    });
+
+    const events: Array<{ orderId: string; field: string; oldValue: string | null; newValue: string | null; userId: string | null }> = [];
+    if (updates.orderStatus != null && before.orderStatus !== updates.orderStatus)
+      events.push({ orderId: id, field: "orderStatus", oldValue: before.orderStatus, newValue: updates.orderStatus, userId: userId ?? null });
+    if (updates.paymentStatus != null && before.paymentStatus !== updates.paymentStatus)
+      events.push({ orderId: id, field: "paymentStatus", oldValue: before.paymentStatus, newValue: updates.paymentStatus, userId: userId ?? null });
+    if (updates.trackingCode != null && (before.trackingCode ?? null) !== (updates.trackingCode ?? null))
+      events.push({ orderId: id, field: "trackingCode", oldValue: before.trackingCode, newValue: updates.trackingCode ?? null, userId: userId ?? null });
+    if (updates.notes != null && (before.notes ?? null) !== (updates.notes ?? null))
+      events.push({ orderId: id, field: "notes", oldValue: before.notes, newValue: updates.notes ?? null, userId: userId ?? null });
+
+    if (events.length > 0)
+      await tx.orderEvent.createMany({ data: events });
+
+    return updated;
   });
   return order;
 }

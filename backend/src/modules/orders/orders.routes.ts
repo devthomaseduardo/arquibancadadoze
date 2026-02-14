@@ -47,8 +47,14 @@ router.get("/", adminAuth, async (req, res, next) => {
       orderStatus: req.query.orderStatus as string,
       paymentStatus: req.query.paymentStatus as string,
       customerName: req.query.customerName as string,
+      customerEmail: req.query.customerEmail as string,
+      customerPhone: req.query.customerPhone as string,
       orderNumber: req.query.orderNumber as string,
       orderId: req.query.orderId as string,
+      channel: req.query.channel as string,
+      region: req.query.region as string,
+      needsShipping: req.query.needsShipping === "true" || req.query.needsShipping === "1",
+      sort: (req.query.sort as "recent" | "value_desc" | "profit_desc" | "pending") || undefined,
     };
     const limit = Math.min(Number(req.query.limit) || 100, 200);
     const offset = Number(req.query.offset) || 0;

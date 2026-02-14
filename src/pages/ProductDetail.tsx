@@ -5,8 +5,9 @@ import { ArrowLeft, ShoppingCart, MessageCircle, Ruler, Star, Truck, ShieldCheck
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "../components/Layout";
+import ProductGallery from "../components/ProductGallery";
 import { getProductBySlug } from "../lib/api";
-import { toStoreProductDetail } from "../lib/store-mappers";
+import { toStoreProductDetail, getUploadedMediaForCategorySlug } from "../lib/store-mappers";
 import { useCart } from "../contexts/CartContext";
 import { formatCurrency } from "../lib/utils";
 import { toast } from "sonner";
@@ -32,7 +33,6 @@ const ProductDetail = () => {
       toast.error("Selecione um tamanho", { description: "Escolha o tamanho antes de adicionar." });
       return;
     }
-    // Fix: Adding baseCost to satisfy the CartItem interface requirements
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -41,7 +41,6 @@ const ProductDetail = () => {
       size: selectedSize,
       customName: customName.trim().toUpperCase() || undefined,
       price: product.priceMin,
-      baseCost: product.baseCost,
       quantity: 1,
       categorySlug: product.categorySlug,
     });
@@ -87,8 +86,16 @@ const ProductDetail = () => {
         </Link>
 
         <div className="grid gap-8 md:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-            <img src={product.image} alt={product.name} className="w-full object-cover" />
+          <div className="overflow-hidden rounded-2xl">
+            <ProductGallery
+              productName={product.name}
+              images={
+                (() => {
+                  const gallery = getUploadedMediaForCategorySlug(product.categorySlug);
+                  return gallery.length > 0 ? gallery : [product.image];
+                })()
+              }
+            />
           </div>
 
           <motion.div
@@ -172,9 +179,42 @@ const ProductDetail = () => {
               </div>
             </div>
 
-            <div className="mt-8 rounded-lg border border-zinc-800 p-4 text-xs text-zinc-400 space-y-2">
-              <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Envio nacional com rastreio em 5 dias.</p>
-              <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Garantia total de satisfação Arquibancada 12.</p>
+            <div className="mt-8 space-y-6">
+              <div className="rounded-lg border border-zinc-800 p-4 text-sm text-zinc-400 space-y-3">
+                <h4 className="font-bold text-white uppercase tracking-wider text-xs">Sobre o produto</h4>
+                <p><strong className="text-zinc-300">Tecido:</strong> Poliéster premium com dry-fit, leve e respirável. Acabamento 1:1 com bordados de alta definição.</p>
+                <p><strong className="text-zinc-300">Modelagem:</strong> Corte atlético, gola reforçada. Disponível com ou sem personalização (nome/número).</p>
+                <p><strong className="text-zinc-300">Cuidados:</strong> Lavar à mão ou máquina (modo delicado), não usar alvejante, secar à sombra.</p>
+              </div>
+              <div className="rounded-lg border border-zinc-800 p-4 overflow-x-auto">
+                <h4 className="font-bold text-white uppercase tracking-wider text-xs mb-3">Tabela de medidas (cm)</h4>
+                <table className="w-full text-xs text-zinc-400">
+                  <thead>
+                    <tr className="border-b border-zinc-700">
+                      <th className="text-left py-2 pr-4">Tamanho</th>
+                      <th className="text-left py-2 pr-4">Peito</th>
+                      <th className="text-left py-2 pr-4">Cintura</th>
+                      <th className="text-left py-2 pr-4">Quadril</th>
+                      <th className="text-left py-2">Comprimento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[["P", "96", "76", "96", "68"], ["M", "100", "80", "100", "70"], ["G", "104", "84", "104", "72"], ["GG", "108", "88", "108", "74"], ["XG", "112", "92", "112", "76"]].map(([tam, peito, cintura, quadril, comp]) => (
+                      <tr key={tam} className="border-b border-zinc-800">
+                        <td className="py-2 pr-4 font-bold text-white">{tam}</td>
+                        <td className="py-2 pr-4">{peito}</td>
+                        <td className="py-2 pr-4">{cintura}</td>
+                        <td className="py-2 pr-4">{quadril}</td>
+                        <td className="py-2">{comp}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="rounded-lg border border-zinc-800 p-4 text-xs text-zinc-400 space-y-2">
+                <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Envio nacional com rastreio em 5 dias.</p>
+                <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Garantia total de satisfação Arquibancada 12.</p>
+              </div>
             </div>
           </motion.div>
         </div>

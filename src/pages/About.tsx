@@ -2,8 +2,6 @@
 import React, { useState } from "react";
 import { Mail, Send, Instagram, Facebook, MessageCircle } from "lucide-react";
 import Layout from "../components/Layout";
-import { criativos } from "../data/criativos";
-import BannerCarousel from "../components/BannerCarousel";
 import { toast } from "sonner";
 
 const About = () => {
@@ -34,16 +32,6 @@ const About = () => {
         <div className="grid gap-16 lg:grid-cols-2">
           {/* About Section */}
           <div className="space-y-8">
-            <div className="rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl shadow-primary/5">
-              <BannerCarousel
-                images={[
-                  { src: criativos.bannerPrincipal, alt: "A12 Lifestyle" },
-                  { src: criativos.bannerSecundario, alt: "Qualidade Premium" },
-                ]}
-                className="aspect-video"
-              />
-            </div>
-            
             <div className="space-y-6 text-zinc-400 leading-relaxed text-lg">
               <p>
                 A <strong>Arquibancada 12</strong> nasceu da paixão visceral pelo futebol. 
